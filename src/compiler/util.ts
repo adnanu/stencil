@@ -1,4 +1,4 @@
-import { BANNER } from '../util/constants';
+import { BANNER, ENCAPSULATION_TYPE } from '../util/constants';
 import { BuildConfig, BuildContext, Diagnostic, FilesMap, StencilSystem } from '../util/interfaces';
 
 
@@ -15,8 +15,12 @@ export function getBuildContext(ctx?: BuildContext) {
   ctx.jsFiles = ctx.jsFiles || {};
   ctx.cssFiles = ctx.cssFiles || {};
   ctx.dependentManifests = ctx.dependentManifests || {};
+  ctx.compiledFileCache = ctx.compiledFileCache || {};
   ctx.moduleBundleOutputs = ctx.moduleBundleOutputs || {};
   ctx.styleSassOutputs = ctx.styleSassOutputs || {};
+  ctx.styleSassScopedOutputs = ctx.styleSassOutputs || {};
+  ctx.styleCssOutputs = ctx.styleCssOutputs || {};
+  ctx.styleCssScopedOutputs = ctx.styleCssScopedOutputs || {};
   ctx.changedFiles = ctx.changedFiles || [];
 
   return ctx;
@@ -387,6 +391,11 @@ export function catchError(diagnostics: Diagnostic[], err: Error) {
 
 export function hasError(diagnostics: Diagnostic[]) {
   return diagnostics.some(d => d.level === 'error' && d.type !== 'runtime');
+}
+
+
+export function componentRequiresScopedStyles(encapsulation: ENCAPSULATION_TYPE) {
+  return (encapsulation === ENCAPSULATION_TYPE.ScopedCss || encapsulation === ENCAPSULATION_TYPE.ShadowDom);
 }
 
 

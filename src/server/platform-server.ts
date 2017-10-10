@@ -6,10 +6,10 @@ import { createDomApi } from '../core/renderer/dom-api';
 import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
 import { createRendererPatch } from '../core/renderer/patch';
+import { DEFAULT_STYLE_MODE, MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { getAppFileName } from '../compiler/app/app-core';
 import { getCssFile, getJsFile, normalizePath } from '../compiler/util';
 import { h, t } from '../core/renderer/h';
-import { MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { noop } from '../util/helpers';
 import { parseComponentMeta } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
@@ -23,7 +23,7 @@ export function createPlatformServer(
   isPrerender: boolean,
   ctx?: BuildContext
 ): PlatformApi {
-  const registry: ComponentRegistry = { 'HTML': {} };
+  const registry: ComponentRegistry = { 'html': {} };
   const moduleImports: {[tag: string]: any} = {};
   const moduleCallbacks: ModuleCallbacks = {};
   const loadedModules: {[moduleId: string]: boolean} = {};
@@ -92,7 +92,7 @@ export function createPlatformServer(
 
 
   // create the renderer which will be used to patch the vdom
-  plt.render = createRendererPatch(plt, domApi);
+  plt.render = createRendererPatch(plt, domApi, false);
 
   // setup the root node of all things
   // which is the mighty <html> tag
@@ -112,7 +112,7 @@ export function createPlatformServer(
     }
   }
 
-  function connectHostElement(elm: HostElement, slotMeta: number) {
+  function connectHostElement(cmpMeta: ComponentMeta, elm: HostElement) {
     // set the "mode" property
     if (!elm.mode) {
       // looks like mode wasn't set as a property directly yet
@@ -121,13 +121,13 @@ export function createPlatformServer(
       elm.mode = domApi.$getAttribute(elm, 'mode') || Context.mode;
     }
 
-    assignHostContentSlots(domApi, elm, slotMeta);
+    assignHostContentSlots(domApi, elm, cmpMeta.slotMeta);
   }
 
 
   function getComponentMeta(elm: Element) {
-    // registry tags are always UPPER-CASE
-    return registry[elm.tagName.toUpperCase()];
+    // registry tags are always lower-case
+    return registry[elm.tagName.toLowerCase()];
   }
 
   function defineComponent(cmpMeta: ComponentMeta) {
@@ -137,8 +137,8 @@ export function createPlatformServer(
     cmpMeta.membersMeta.mode = { memberType: MEMBER_TYPE.Prop };
     cmpMeta.membersMeta.color = { memberType: MEMBER_TYPE.Prop, attribName: 'color' };
 
-    // registry tags are always UPPER-CASE
-    const registryTag = cmpMeta.tagNameMeta.toUpperCase();
+    // registry tags are always lower-case
+    const registryTag = cmpMeta.tagNameMeta.toLowerCase();
 
     if (!globalDefined[registryTag]) {
       globalDefined[registryTag] = true;
@@ -153,8 +153,7 @@ export function createPlatformServer(
   }
 
   function isDefinedComponent(elm: Element) {
-    // registry tags are always UPPER-CASE
-    return !!(globalDefined[elm.tagName.toUpperCase()] || registry[elm.tagName.toUpperCase()]);
+    return !!(globalDefined[elm.tagName.toLowerCase()] || registry[elm.tagName.toLowerCase()]);
   }
 
 
@@ -237,9 +236,9 @@ export function createPlatformServer(
   function loadModuleStyles(cmpMeta: ComponentMeta, elm: HostElement) {
     // we need to load this component's css file
     // we're already figured out and set "mode" as a property to the element
-    let styleId: any = cmpMeta.styleIds && (cmpMeta.styleIds[elm.mode] || cmpMeta.styleIds.$);
+    let styleId: any = cmpMeta.styleIds && (cmpMeta.styleIds[elm.mode] || cmpMeta.styleIds[DEFAULT_STYLE_MODE]);
     if (!styleId && cmpMeta.stylesMeta) {
-      const stylesMeta = cmpMeta.stylesMeta[elm.mode] || cmpMeta.stylesMeta.$;
+      const stylesMeta = cmpMeta.stylesMeta[elm.mode] || cmpMeta.stylesMeta[DEFAULT_STYLE_MODE];
       if (stylesMeta) {
         styleId = stylesMeta.styleId;
       }

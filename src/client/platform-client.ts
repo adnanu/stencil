@@ -12,21 +12,19 @@ import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
 import { SSR_VNODE_ID } from '../util/constants';
+import { useShadowDom, useScopedCss } from '../core/renderer/encapsulation';
 
 
 export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: Window, doc: Document, publicPath: string, hydratedCssClass: string): PlatformApi {
-  const registry: ComponentRegistry = { 'HTML': {} };
+  const registry: ComponentRegistry = { 'html': {} };
   const moduleImports: {[tag: string]: any} = {};
   const moduleCallbacks: ModuleCallbacks = {};
   const loadedModules: {[moduleId: string]: boolean} = {};
-  const loadedStyles: {[styleId: string]: boolean} = {};
+  const styleTemplates: StyleTemplates = {};
   const pendingModuleRequests: {[url: string]: boolean} = {};
   const controllerComponents: {[tag: string]: HostElement} = {};
-
   const domApi = createDomApi(doc);
-  const now = function() {
-    return win.performance.now();
-  };
+  const now = () => win.performance.now();
 
   // initialize Core global object
   Context.dom = createDomControllerClient(win, now);
@@ -66,15 +64,17 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     loadBundle,
     queue: createQueueClient(Context.dom, now),
     connectHostElement,
+    cloneComponentStyle,
     emitEvent: Context.emit,
     getEventOptions,
     onError,
     isClient: true
   };
 
-  // create the renderer that will be used
-  plt.render = createRendererPatch(plt, domApi);
+  const supportsNativeShadowDom = !!(domApi.$body.attachShadow && (domApi.$body as any).getRootNode);
 
+  // create the renderer that will be used
+  plt.render = createRendererPatch(plt, domApi, supportsNativeShadowDom);
 
   // setup the root element which is the mighty <html> tag
   // the <html> has the final say of when the app has loaded
@@ -95,10 +95,10 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
   function getComponentMeta(elm: Element) {
     // get component meta using the element
     // important that the registry has upper case tag names
-    return registry[elm.tagName];
+    return registry[elm.tagName.toLowerCase()];
   }
 
-  function connectHostElement(elm: HostElement, slotMeta: number) {
+  function connectHostElement(cmpMeta: ComponentMeta, elm: HostElement) {
     // set the "mode" property
     if (!elm.mode) {
       // looks like mode wasn't set as a property directly yet
@@ -108,10 +108,11 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     }
 
     // host element has been connected to the DOM
-    if (!domApi.$getAttribute(elm, SSR_VNODE_ID)) {
+    if (!domApi.$getAttribute(elm, SSR_VNODE_ID) && !useShadowDom(supportsNativeShadowDom, cmpMeta)) {
+      // only required when we're not using native shadow dom (slot)
       // this host element was NOT created with SSR
       // let's pick out the inner content for slot projection
-      assignHostContentSlots(domApi, elm, slotMeta);
+      assignHostContentSlots(domApi, elm, cmpMeta.slotMeta);
     }
   }
 
@@ -152,6 +153,8 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
         }
       }
 
+      // set the array of all the attributes to keep an eye on
+      // https://www.youtube.com/watch?v=RBs21CFBALI
       HostElementConstructor.observedAttributes = observedAttributes;
 
       // define the custom element
@@ -161,11 +164,13 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
 
   function isDefinedComponent(elm: Element) {
+    // check if this component is already defined or not
     return globalDefined.indexOf(elm.tagName.toLowerCase()) > -1 || !!getComponentMeta(elm);
   }
 
 
   App.loadComponents = function loadComponents(moduleId, importFn) {
+    // jsonp callback from requested modules
     const args = arguments;
 
     // import component function
@@ -192,8 +197,53 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
   };
 
 
+  App.loadStyles = function loadStyles() {
+    // jsonp callback from requested modules
+    // either directly add styles to document.head or add the
+    // styles to a template tag to be cloned later for shadow roots
+    const args = arguments;
+    let sElm: Element;
+    let cmpMeta: ComponentMeta;
+
+    for (var i = 0; i < args.length; i += 2) {
+      cmpMeta = registry[args[i]];
+
+      if (cmpMeta) {
+        if (useShadowDom(supportsNativeShadowDom, cmpMeta)) {
+          // this component SHOULD use shadow dom
+          // and this browser DOES support shadow dom
+          // these styles will be encapsulated to its shadow root
+
+          // create the template element which will hold the styles
+          // adding it to the dom via <template> so that we can
+          // clone this for each shadow root that will need these styles
+          styleTemplates[args[i]] = sElm = domApi.$createElement('template');
+
+          // add the style text to the template element
+          sElm.innerHTML = '<style>' + args[i + 1] + '</style>';
+
+        } else {
+          // either this component should NOT use shadow dom
+          // or the browser does NOT support shadow dom
+          // these styles go be applied to the global document
+          sElm = domApi.$createElement('style');
+
+          // add the style text to the style element
+          sElm.innerHTML = args[i + 1];
+        }
+
+        // give it an unique id
+        sElm.id = `style-${args[i]}`;
+
+        // add our new element to the head
+        domApi.$appendChild(domApi.$head, sElm);
+      }
+    }
+  };
+
+
   function loadBundle(cmpMeta: ComponentMeta, elm: HostElement, cb: Function): void {
-    const moduleId = cmpMeta.moduleId;
+    let moduleId = cmpMeta.moduleId;
 
     if (loadedModules[moduleId]) {
       // sweet, we've already loaded this module
@@ -202,36 +252,10 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     } else {
       // never seen this module before, let's start the request
       // and add it to the callbacks to fire when it has loaded
-      if (moduleCallbacks[moduleId]) {
-        moduleCallbacks[moduleId].push(cb);
-      } else {
-        moduleCallbacks[moduleId] = [cb];
-      }
+      (moduleCallbacks[moduleId] = moduleCallbacks[moduleId] || []).push(cb);
 
-      // start the request for the component module
-      requestModule(moduleId);
-
-      // we also need to load the css file in the head
-      // we've already figured out and set "mode" as a property to the element
-      const styleId = cmpMeta.styleIds[elm.mode] || cmpMeta.styleIds.$;
-      if (styleId && !loadedStyles[styleId]) {
-        // this style hasn't been added to the head yet
-        loadedStyles[styleId] = true;
-
-        // append this link element to the head, which starts the request for the file
-        const linkElm = domApi.$createElement('link');
-        linkElm.href = publicPath + styleId + '.css';
-        linkElm.rel = 'stylesheet';
-
-        // insert these styles after the last styles we've already inserted
-        // which could include the SSR styles, or the loader's hydrate css script's styles
-        const insertedStyles = domApi.$head.querySelectorAll('[data-styles]');
-        let insertBeforeRef = insertedStyles[insertedStyles.length - 1] || domApi.$head.firstChild;
-        if (insertBeforeRef) {
-          insertBeforeRef = insertBeforeRef.nextSibling;
-        }
-        domApi.$insertBefore(domApi.$head, linkElm, insertBeforeRef);
-      }
+      // figure out which module to request and kick it off
+      requestModule(getModuleId(supportsNativeShadowDom, cmpMeta, elm.mode));
     }
   }
 
@@ -276,7 +300,12 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     domApi.$appendChild(domApi.$head, scriptElm);
   }
 
-  let WindowCustomEvent = (win as any).CustomEvent;
+  function cloneComponentStyle(tag: string) {
+    const templateElm = styleTemplates[tag];
+    return templateElm && templateElm.content.cloneNode(true) as HTMLStyleElement;
+  }
+
+  var WindowCustomEvent = (win as any).CustomEvent;
   if (typeof WindowCustomEvent !== 'function') {
     // CustomEvent polyfill
     WindowCustomEvent = function CustomEvent(event: any, data: EventEmitterData) {
@@ -288,7 +317,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
   }
 
   // test if this browser supports event options or not
-  let supportsEventOptions = false;
+  var supportsEventOptions = false;
   try {
     win.addEventListener('eopt', null,
       Object.defineProperty({}, 'passive', {
@@ -319,4 +348,34 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
   }
 
   return plt;
+}
+
+
+export function getModuleId(supportsNativeShadowDom: boolean, cmpMeta: ComponentMeta, mode: string) {
+  // figure out which module to request and kick it off
+  // figure out which module file we need to request
+  const styleId = cmpMeta.styleIds[mode] || cmpMeta.styleIds.$;
+  if (styleId) {
+    // this component DOES have styles
+
+    return `${cmpMeta.moduleId}.${styleId}` + ((useScopedCss(supportsNativeShadowDom, cmpMeta)) ?
+              // use the scoped css version for styling
+              // either this component wants to use scoped css
+              // or it wants shadow css, but browser doesn't support it
+              // moduleId.styleId.sc
+              '.sc'
+              :
+              // use the exact css the user wrote
+              // either it's shadow dom css and this browser supports shadow dom
+              // or this component doesn't want to use scoped/shadow css at all
+              // moduleId.styleId
+              '');
+  }
+
+  return cmpMeta.moduleId;
+}
+
+
+export interface StyleTemplates {
+  [tag: string]: HTMLTemplateElement;
 }

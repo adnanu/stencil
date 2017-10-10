@@ -33,7 +33,7 @@ export function connectedCallback(plt: PlatformApi, elm: HostElement) {
       const cmpMeta = plt.getComponentMeta(elm);
 
       // only collects slot references if this component even has slots
-      plt.connectHostElement(elm, cmpMeta.slotMeta);
+      plt.connectHostElement(cmpMeta, elm);
 
       // start loading this component mode's bundle
       // if it's already loaded then the callback will be synchronous

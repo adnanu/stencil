@@ -1,17 +1,18 @@
-import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
+import { ComponentMeta, ComponentRegistry, CompiledModeStyles, EventMeta, ListenMeta, LoadComponentRegistry,
   MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
-import { MEMBER_TYPE, PROP_TYPE, SLOT } from '../util/constants';
+import { ENCAPSULATION_TYPE, MEMBER_TYPE, PROP_TYPE, SLOT_META } from '../util/constants';
 
 
 export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadComponentRegistry {
   // ensure we've got a standard order of the components
   const d: any[] = [
-    cmpMeta.tagNameMeta.toUpperCase(),
+    cmpMeta.tagNameMeta,
     cmpMeta.moduleId,
     formatStyles(cmpMeta.stylesMeta),
     formatObserveAttributeProps(cmpMeta.membersMeta),
-    formatListeners(cmpMeta.listenersMeta),
+    formatEncapsulation(cmpMeta.encapsulation),
     formatSlot(cmpMeta.slotMeta),
+    formatListeners(cmpMeta.listenersMeta),
     cmpMeta.loadPriority
   ];
 
@@ -35,13 +36,13 @@ export function formatStyles(styleMeta: StylesMeta): any {
 
 
 function formatSlot(val: number) {
-  if (val === SLOT.HasSlots) {
-    return SLOT.HasSlots;
+  if (val === SLOT_META.HasSlots) {
+    return SLOT_META.HasSlots;
   }
-  if (val === SLOT.HasNamedSlots) {
-    return SLOT.HasNamedSlots;
+  if (val === SLOT_META.HasNamedSlots) {
+    return SLOT_META.HasNamedSlots;
   }
-  return SLOT.NoSlots;
+  return SLOT_META.NoSlots;
 }
 
 
@@ -148,8 +149,23 @@ export function formatLoadComponents(
 
       `${componentMetaStr}`,
 
-    `)`
+    `);`
   ].join('\n');
+}
+
+
+export function formatLoadStyles(namespace: string, bundleStyles: CompiledModeStyles[], scoped: boolean) {
+  const args: string[] = [];
+
+  bundleStyles.forEach(bundleStyle => {
+    // arg EVEN
+    args.push(bundleStyle.tag);
+
+    // arg ODD
+    args.push((scoped ? bundleStyle.scopedStyles : bundleStyle.unscopedStyles).replace(/\n/g, `\\n`).replace(/\"/g, `\\"`));
+  });
+
+  return `${namespace}.loadStyles("${args.join(`","`)}");`;
 }
 
 
@@ -160,17 +176,15 @@ export function formatComponentMeta(cmpMeta: ComponentMeta) {
   const propWillChanges = formatPropChanges(tag, 'prop will change', cmpMeta.propsWillChangeMeta);
   const propDidChanges = formatPropChanges(tag, 'prop did change', cmpMeta.propsDidChangeMeta);
   const events = formatEvents(tag, cmpMeta.eventsMeta);
-  const shadow = formatShadow(cmpMeta.isShadowMeta);
 
   const d: string[] = [];
 
-  d.push(`/** ${tag}: tag **/\n"${tag.toUpperCase()}"`);
+  d.push(`/** ${tag}: tag **/\n"${tag}"`);
   d.push(`/** ${tag}: members **/\n${members}`);
   d.push(`/** ${tag}: host **/\n${host}`);
   d.push(`/** ${tag}: events **/\n${events}`);
   d.push(`/** ${tag}: propWillChanges **/\n${propWillChanges}`);
   d.push(`/** ${tag}: propDidChanges **/\n${propDidChanges}`);
-  d.push(`/** ${tag}: shadow **/\n${shadow}`);
 
   return `\n/***************** ${tag} *****************/\n[\n` + trimFalsyDataStr(d).join(',\n\n') + `\n\n]`;
 }
@@ -329,34 +343,14 @@ function formatEventOpts(label: string, eventMeta: EventMeta) {
 }
 
 
-function formatShadow(val: boolean) {
-  return val ?
-    '1 /* use shadow dom */' :
-    '0 /* do not use shadow dom */';
-}
-
-
-export function formatJsBundleFileName(jsBundleId: string) {
-  return `${jsBundleId}.js`;
-}
-
-
-export function formatCssBundleFileName(cssBundleId: string) {
-  return `${cssBundleId}.css`;
-}
-
-
-export function getBundledModulesId(bundle: Bundle) {
-  return bundle.components.map(c => c.toLowerCase()).sort().join('.');
-}
-
-
-export function generateBundleId(tags: string[]) {
-  return tags.sort((a, b) => {
-    if (a.toLowerCase() < b.toLowerCase()) return -1;
-    if (a.toLowerCase() > b.toLowerCase()) return 1;
-    return 0;
-  }).join('.');
+function formatEncapsulation(val: ENCAPSULATION_TYPE) {
+  if (val === ENCAPSULATION_TYPE.ShadowDom) {
+    return ENCAPSULATION_TYPE.ShadowDom;
+  }
+  if (val === ENCAPSULATION_TYPE.ScopedCss) {
+    return ENCAPSULATION_TYPE.ScopedCss;
+  }
+  return ENCAPSULATION_TYPE.NoEncapsulation;
 }
 
 

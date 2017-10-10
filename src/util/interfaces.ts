@@ -1,6 +1,6 @@
 import { CssClassMap } from './jsx-interfaces';
 export { CssClassMap } from './jsx-interfaces';
-import { MEMBER_TYPE, PROP_TYPE } from './constants';
+import { ENCAPSULATION_TYPE, MEMBER_TYPE, PROP_TYPE, PRIORITY, SLOT_META } from './constants';
 
 
 export interface CoreContext {
@@ -24,6 +24,7 @@ export interface CoreContext {
 export interface AppGlobal {
   components?: LoadComponentRegistry[];
   loadComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
+  loadStyles?: (styleId: string, styleText: string) => void;
 }
 
 
@@ -98,19 +99,24 @@ export interface LoadComponentRegistry {
   [3]: ComponentMemberData[];
 
   /**
-   * listeners
+   * encapsulated
    */
-  [4]: ComponentListenersData[];
+  [4]: ENCAPSULATION_TYPE;
 
   /**
    * slot
    */
-  [5]: number;
+  [5]: SLOT_META;
+
+  /**
+   * listeners
+   */
+  [6]: ComponentListenersData[];
 
   /**
    * load priority
    */
-  [6]: number;
+  [7]: PRIORITY;
 }
 
 
@@ -169,9 +175,9 @@ export interface LoadComponentMeta {
   [5]: PropChangeMeta[];
 
   /**
-   * shadow
+   * encapsulation
    */
-  [6]: boolean;
+  [6]: ENCAPSULATION_TYPE;
 }
 
 
@@ -287,6 +293,30 @@ export interface AppRegistry {
 export interface Bundle {
   components: string[];
   priority?: number;
+}
+
+
+export interface ManifestBundle {
+  components?: string[];
+  moduleFiles: ModuleFile[];
+  compiledModeStyles?: CompiledModeStyles[];
+  compiledModule?: CompiledModules;
+  priority?: number;
+}
+
+
+export interface CompiledModeStyles {
+  tag?: string;
+  modeName?: string;
+  styleOrder?: number;
+  unscopedStyles?: string;
+  scopedStyles?: string;
+}
+
+
+export interface CompiledModules {
+  moduleId?: string;
+  moduleText?: string;
 }
 
 
@@ -437,8 +467,12 @@ export interface BuildContext {
   moduleFiles?: ModuleFiles;
   jsFiles?: FilesMap;
   cssFiles?: FilesMap;
+  compiledFileCache?: ModuleBundles;
   moduleBundleOutputs?: ModuleBundles;
   styleSassOutputs?: ModuleBundles;
+  styleSassScopedOutputs?: ModuleBundles;
+  styleCssOutputs?: ModuleBundles;
+  styleCssScopedOutputs?: ModuleBundles;
   filesToWrite?: FilesMap;
   dependentManifests?: {[collectionName: string]: Manifest};
   appFiles?: {
@@ -511,22 +545,6 @@ export interface TranspileResults {
 }
 
 
-export interface ModuleResults {
-  bundles: {
-    [bundleId: string]: string;
-  };
-}
-
-
-export interface StylesResults {
-  bundles: {
-    [bundleId: string]: {
-      [modeName: string]: string;
-    };
-  };
-}
-
-
 export interface DependentCollection {
   name: string;
   includeBundledOnly?: boolean;
@@ -573,6 +591,7 @@ export interface ComponentOptions {
   styleUrl?: string;
   styleUrls?: string[] | ModeStyles;
   styles?: string;
+  scoped?: boolean;
   shadow?: boolean;
   host?: HostMeta;
   assetsDir?: string;
@@ -698,10 +717,10 @@ export interface ComponentMeta {
   listenersMeta?: ListenMeta[];
   propsWillChangeMeta?: PropChangeMeta[];
   propsDidChangeMeta?: PropChangeMeta[];
-  isShadowMeta?: boolean;
+  encapsulation?: ENCAPSULATION_TYPE;
   hostMeta?: HostMeta;
   assetsDirsMeta?: AssetsMeta[];
-  slotMeta?: number;
+  slotMeta?: SLOT_META;
   loadPriority?: number;
   componentModule?: any;
   componentClass?: string;
@@ -838,7 +857,7 @@ export interface HostElement extends HTMLElement {
 
 
 export interface RendererApi {
-  (oldVNode: VNode | Element, newVNode: VNode, isUpdate?: boolean, hostContentNodes?: HostContentNodes, ssrId?: number): VNode;
+  (oldVNode: VNode | Element, newVNode: VNode, isUpdate?: boolean, hostContentNodes?: HostContentNodes, encapsulation?: ENCAPSULATION_TYPE, ssrId?: number): VNode;
 }
 
 
@@ -919,7 +938,7 @@ export interface PlatformApi {
   propConnect: (ctrlTag: string) => PropConnect;
   loadBundle: (cmpMeta: ComponentMeta, elm: HostElement, cb: Function) => void;
   render?: RendererApi;
-  connectHostElement: (elm: HostElement, slotMeta: number) => void;
+  connectHostElement: (cmpMeta: ComponentMeta, elm: HostElement) => void;
   queue: QueueApi;
   onAppLoad?: (rootElm: HostElement, stylesMap: FilesMap, failureDiagnostic?: Diagnostic) => void;
   getEventOptions: (useCapture?: boolean, usePassive?: boolean) => any;
@@ -927,6 +946,7 @@ export interface PlatformApi {
   tmpDisconnected?: boolean;
   onError: (type: number, err: any, elm: HostElement) => void;
   isClient?: boolean;
+  cloneComponentStyle?: (tag: string) => HTMLStyleElement;
 }
 
 
@@ -1226,6 +1246,7 @@ export interface ComponentData {
   assetPaths?: string[];
   slot?: 'hasSlots'|'hasNamedSlots';
   shadow?: boolean;
+  scoped?: boolean;
   priority?: 'low';
 }
 

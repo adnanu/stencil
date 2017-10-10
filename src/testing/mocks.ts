@@ -43,7 +43,7 @@ export function mockPlatform() {
     });
   };
 
-  const renderer = createRendererPatch(plt, domApi);
+  const renderer = createRendererPatch(plt, domApi, false);
 
   plt.render = function(oldVNode: VNode, newVNode: VNode, isUpdate: boolean, hostElementContentNode?: HostContentNodes) {
     return renderer(oldVNode, newVNode, isUpdate, hostElementContentNode);
@@ -314,7 +314,7 @@ export function mockDomApi(document?: any) {
 
 export function mockRenderer(plt?: MockedPlatform, domApi?: DomApi): any {
   plt = plt || mockPlatform();
-  return createRendererPatch(<PlatformApi>plt, domApi || mockDomApi());
+  return createRendererPatch(<PlatformApi>plt, domApi || mockDomApi(), false);
 }
 
 
@@ -369,9 +369,6 @@ export function mockTextNode(text: string): Element {
 
 
 export function mockDefine(plt: MockedPlatform, cmpMeta: ComponentMeta) {
-  if (cmpMeta.tagNameMeta) {
-    cmpMeta.tagNameMeta = cmpMeta.tagNameMeta.toUpperCase();
-  }
   if (!cmpMeta.componentModule) {
     cmpMeta.componentModule = class {};
   }
@@ -419,7 +416,7 @@ function connectComponents(plt: MockedPlatform, node: HostElement) {
 
 
 export function waitForLoad(plt: MockedPlatform, rootNode: any, tag: string): Promise<HostElement> {
-  const elm: HostElement = rootNode.tagName === tag.toUpperCase() ? rootNode : rootNode.querySelector(tag);
+  const elm: HostElement = rootNode.tagName === tag.toLowerCase() ? rootNode : rootNode.querySelector(tag);
 
   return plt.$flushQueue().then(() => {
     // flush to read attribute mode on host elment

@@ -40,7 +40,13 @@ export function render(plt: PlatformApi, elm: HostElement, cmpMeta: ComponentMet
     // each patch always gets a new vnode
     // the host element itself isn't patched because it already exists
     // kick off the actual render and any DOM updates
-    elm._vnode = plt.render(oldVNode, h(null, vnodeHostData, vnodeChildren), isUpdateRender, elm._hostContentNodes);
+    elm._vnode = plt.render(
+      oldVNode,
+      h(null, vnodeHostData, vnodeChildren),
+      isUpdateRender,
+      elm._hostContentNodes,
+      cmpMeta.encapsulation
+    );
   }
 
   // it's official, this element has rendered

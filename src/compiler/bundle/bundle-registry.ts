@@ -5,14 +5,14 @@ export function generateComponentRegistry(manifest: Manifest, styleResults: Styl
   const registry: ComponentRegistry = {};
 
   // create the minimal registry component data for each bundle
-  Object.keys(styleResults.bundles).forEach(bundleId => {
+  styleResults.bundleStyles.forEach(moduleFile => {
     // a bundle id is made of of each component tag name
     // separated by a period
     const componentTags = bundleId.split('.');
-    const styleResult = styleResults.bundles[bundleId];
+    const styleResult = styleResults[bundleId];
 
     componentTags.forEach(tag => {
-      const registryTag = tag.toUpperCase();
+      const registryTag = tag.toLowerCase();
 
       // merge up the style id to the style data
       if (!registry[registryTag]) {
@@ -31,19 +31,19 @@ export function generateComponentRegistry(manifest: Manifest, styleResults: Styl
         if (styleResult) {
           Object.keys(styleResult).forEach(modeName => {
             registry[registryTag].stylesMeta[modeName] = registry[registryTag].stylesMeta[modeName] || {};
-            registry[registryTag].stylesMeta[modeName].styleId = styleResult[modeName];
+            registry[registryTag].stylesMeta[modeName].styleId = styleResult[modeName].styleId;
           });
         }
       }
     });
   });
 
-  Object.keys(moduleResults.bundles).forEach(bundleId => {
+  Object.keys(moduleResults).forEach(bundleId => {
     const componentTags = bundleId.split('.');
-    const moduleId = moduleResults.bundles[bundleId];
+    const moduleId = moduleResults[bundleId].moduleId;
 
     componentTags.forEach(tag => {
-      const registryTag = tag.toUpperCase();
+      const registryTag = tag.toLowerCase();
 
       if (!registry[registryTag]) {
         const moduleFile = manifest.modulesFiles.find(modulesFile => {

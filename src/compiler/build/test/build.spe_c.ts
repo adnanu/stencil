@@ -3,6 +3,7 @@ import { BuildConfig, BuildContext, BuildResults, ComponentRegistry } from '../.
 import { mockBuildConfig, mockFs } from '../../../testing/mocks';
 import { parseComponentRegistry } from '../../../util/data-parse';
 import { validateBuildConfig } from '../../../util/validate-config';
+import * as path from 'path';
 
 
 describe('build', () => {
@@ -530,9 +531,10 @@ describe('build', () => {
     (<any>config.sys.fs).unlinkSync(filePath);
   }
 
-  function wroteFile(r: BuildResults, path: string) {
+  function wroteFile(r: BuildResults, p: string) {
+    const filename = path.basename(p);
     return r.files.some(f => {
-      return f.indexOf(path) > -1;
+      return path.basename(f) === filename;
     });
   }
 
