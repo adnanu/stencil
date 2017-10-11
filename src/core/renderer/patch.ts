@@ -356,17 +356,8 @@ export function createRendererPatch(plt: PlatformApi, domApi: DomApi, supportsNa
       // this component SHOULD use native slot/shadow dom
       // this browser DOES support native shadow dom
       // and this is the first render
-
-      // ok so we're rendering a shadow dom component for the first time
-      // let's also check if we've already loaded a template tag with
-      // the ecapsulated styles that this component should use
-      const styleElm = plt.cloneComponentStyle(tag);
-
-      // create the shadow root
+      // let's create that shadow root
       oldVNode.elm = (oldVNode.elm as HTMLElement).attachShadow({ mode: 'open' });
-
-      // append the <style> if there is one
-      styleElm && domApi.$appendChild(oldVNode.elm, styleElm);
     }
 
     // synchronous patch

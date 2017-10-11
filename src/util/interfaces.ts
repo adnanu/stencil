@@ -846,6 +846,7 @@ export interface HostElement extends HTMLElement {
   _render: (isUpdateRender?: boolean) => void;
   _root?: HTMLElement | ShadowRoot;
   _vnode: VNode;
+  _appliedStyles?: { [tagNameForStyles: string]: boolean };
 }
 
 
@@ -939,7 +940,7 @@ export interface PlatformApi {
   tmpDisconnected?: boolean;
   onError: (type: number, err: any, elm: HostElement) => void;
   isClient?: boolean;
-  cloneComponentStyle?: (tag: string) => HTMLStyleElement;
+  attachStyles?: (cmpMeta: ComponentMeta, elm: HostElement) => void;
 }
 
 

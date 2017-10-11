@@ -6,11 +6,11 @@ import { createDomControllerClient } from './dom-controller-client';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createRendererPatch } from '../core/renderer/patch';
 import { createQueueClient } from './queue-client';
+import { ENCAPSULATION_TYPE, SSR_VNODE_ID } from '../util/constants';
 import { h, t } from '../core/renderer/h';
 import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
-import { SSR_VNODE_ID } from '../util/constants';
 import { useScopedCss, useShadowDom } from '../core/renderer/encapsulation';
 
 
@@ -63,7 +63,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     loadBundle,
     queue: createQueueClient(Context.dom, now),
     connectHostElement,
-    cloneComponentStyle,
+    attachStyles,
     emitEvent: Context.emit,
     getEventOptions,
     onError,
@@ -202,42 +202,24 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     // either directly add styles to document.head or add the
     // styles to a template tag to be cloned later for shadow roots
     const args = arguments;
-    let sElm: Element;
-    let cmpMeta: ComponentMeta;
+    let templateElm: HTMLTemplateElement;
 
     for (var i = 0; i < args.length; i += 2) {
-      cmpMeta = registry[args[i]];
+      // create the template element which will hold the styles
+      // adding it to the dom via <template> so that we can
+      // clone this for each potential shadow root that will need these styles
+      // otherwise it'll be cloned and added to the entire document
+      // but that's for the renderer to figure out later
+      styleTemplates[args[i]] = templateElm = domApi.$createElement('template');
 
-      if (cmpMeta) {
-        if (useShadowDom(supportsNativeShadowDom, cmpMeta)) {
-          // this component SHOULD use shadow dom
-          // and this browser DOES support shadow dom
-          // these styles will be encapsulated to its shadow root
+      // add the style text to the template element
+      templateElm.innerHTML = args[i + 1];
 
-          // create the template element which will hold the styles
-          // adding it to the dom via <template> so that we can
-          // clone this for each shadow root that will need these styles
-          styleTemplates[args[i]] = sElm = domApi.$createElement('template');
+      // give it an unique id
+      templateElm.id = `tmp-${args[i]}`;
 
-          // add the style text to the template element
-          sElm.innerHTML = '<style>' + args[i + 1] + '</style>';
-
-        } else {
-          // either this component should NOT use shadow dom
-          // or the browser does NOT support shadow dom
-          // these styles go be applied to the global document
-          sElm = domApi.$createElement('style');
-
-          // add the style text to the style element
-          sElm.innerHTML = args[i + 1];
-        }
-
-        // give it an unique id
-        sElm.id = `style-${args[i]}`;
-
-        // add our new element to the head
-        domApi.$appendChild(domApi.$head, sElm);
-      }
+      // add our new element to the head
+      domApi.$appendChild(domApi.$head, templateElm);
     }
   };
 
@@ -300,10 +282,42 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     domApi.$appendChild(domApi.$head, scriptElm);
   }
 
-  function cloneComponentStyle(tag: string) {
-    const templateElm = styleTemplates[tag];
-    return templateElm && templateElm.content.cloneNode(true) as HTMLStyleElement;
+
+  function attachStyles(cmpMeta: ComponentMeta, elm: HostElement) {
+    const tagForStyles = cmpMeta.tagNameMeta;
+    const templateElm = styleTemplates[tagForStyles];
+
+    if (templateElm) {
+      let styleContainerNode: Node = domApi.$head;
+
+      if (supportsNativeShadowDom) {
+        if (cmpMeta.encapsulation === ENCAPSULATION_TYPE.ShadowDom) {
+          styleContainerNode = elm.shadowRoot;
+
+        } else {
+          while ((elm as Node) = domApi.$parentNode(elm)) {
+            if ((elm as any).host && (elm as any).host.shadowRoot) {
+              styleContainerNode = (elm as any).host.shadowRoot;
+              break;
+            }
+          }
+        }
+      }
+
+      const appliedStyles = ((styleContainerNode as HostElement)._appliedStyles = (styleContainerNode as HostElement)._appliedStyles || {});
+
+      if (!appliedStyles[tagForStyles]) {
+        // we haven't added these styles to this element yet
+        const styleElm = templateElm.content.cloneNode(true) as HTMLStyleElement;
+
+        domApi.$insertBefore(styleContainerNode, styleElm, styleContainerNode.firstChild);
+
+        // remember we don't need to do this again for this element
+        appliedStyles[tagForStyles] = true;
+      }
+    }
   }
+
 
   var WindowCustomEvent = (win as any).CustomEvent;
   if (typeof WindowCustomEvent !== 'function') {

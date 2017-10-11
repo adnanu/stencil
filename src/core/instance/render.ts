@@ -47,6 +47,11 @@ export function render(plt: PlatformApi, elm: HostElement, cmpMeta: ComponentMet
       elm._hostContentNodes,
       cmpMeta.encapsulation
     );
+
+    // attach the styles this component needs, if any
+    // this fn figures out if the styles should go in a
+    // shadow root or if they should be global
+    plt.attachStyles(cmpMeta, elm);
   }
 
   // it's official, this element has rendered
