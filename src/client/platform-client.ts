@@ -6,13 +6,12 @@ import { createDomControllerClient } from './dom-controller-client';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createRendererPatch } from '../core/renderer/patch';
 import { createQueueClient } from './queue-client';
-import { getBundleId } from '../core/instance/connected';
 import { h, t } from '../core/renderer/h';
 import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
 import { SSR_VNODE_ID } from '../util/constants';
-import { useShadowDom } from '../core/renderer/encapsulation';
+import { useScopedCss, useShadowDom } from '../core/renderer/encapsulation';
 
 
 export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: Window, doc: Document, publicPath: string, hydratedCssClass: string): PlatformApi {
@@ -78,7 +77,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
   // setup the root element which is the mighty <html> tag
   // the <html> has the final say of when the app has loaded
-  const rootElm = <HostElement>domApi.$documentElement;
+  const rootElm = domApi.$documentElement as HostElement;
   rootElm.$rendered = true;
   rootElm.$activeLoading = [];
   rootElm.$initLoad = function appLoadedCallback() {
@@ -125,7 +124,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
 
   function defineComponent(cmpMeta: ComponentMeta, HostElementConstructor: any) {
-    const tagName = cmpMeta.tagNameMeta.toLowerCase();
+    const tagName = cmpMeta.tagNameMeta;
 
     if (globalDefined.indexOf(tagName) === -1) {
       // keep an array of all the defined components, useful for external frameworks
@@ -170,7 +169,8 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
 
   App.loadComponents = function loadComponents(bundleId, importFn) {
-    // jsonp callback from requested bundles
+    // https://youtu.be/Z-FPimCmbX8?t=31
+    // jsonp tag team callback from requested bundles contain tags
     const args = arguments;
 
     // import component function
@@ -243,7 +243,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
 
   function loadBundle(cmpMeta: ComponentMeta, elm: HostElement, cb: Function): void {
-    const bundleId = getBundleId(supportsNativeShadowDom, cmpMeta, elm.mode);
+    const bundleId: string = cmpMeta.bundleIds[elm.mode] || (cmpMeta.bundleIds as any);
 
     if (loadedBundles[bundleId]) {
       // sweet, we've already loaded this bundle
@@ -255,14 +255,14 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
       (bundleCallbacks[bundleId] = bundleCallbacks[bundleId] || []).push(cb);
 
       // figure out which bundle to request and kick it off
-      requestBundle(bundleId);
+      requestBundle(cmpMeta, bundleId);
     }
   }
 
 
-  function requestBundle(bundleId: string) {
+  function requestBundle(cmpMeta: ComponentMeta, bundleId: string) {
     // create the url we'll be requesting
-    const url = publicPath + bundleId + '.js';
+    const url = publicPath + bundleId + ((useScopedCss(supportsNativeShadowDom, cmpMeta) ? '.sc' : '') + '.js');
 
     if (pendingBundleRequests[url]) {
       // we're already actively requesting this url

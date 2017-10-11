@@ -6,11 +6,10 @@ import { createDomApi } from '../core/renderer/dom-api';
 import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
 import { createRendererPatch } from '../core/renderer/patch';
+import { ENCAPSULATION_TYPE, MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { getAppFileName } from '../compiler/app/app-core';
-import { getBundleId } from '../core/instance/connected';
 import { getJsFile, normalizePath } from '../compiler/util';
 import { h, t } from '../core/renderer/h';
-import { MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { noop } from '../util/helpers';
 import { parseComponentMeta } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
@@ -218,7 +217,7 @@ export function createPlatformServer(
       return;
     }
 
-    const bundleId = getBundleId(false, cmpMeta, elm.mode);
+    const bundleId: string = cmpMeta.bundleIds[elm.mode] || (cmpMeta.bundleIds as any);
 
     if (loadedBundles[bundleId]) {
       // sweet, we've already loaded this bundle
@@ -229,8 +228,14 @@ export function createPlatformServer(
       // and add it to the bundle callbacks to fire when it's loaded
       (bundleCallbacks[bundleId] = bundleCallbacks[bundleId] || []).push(cb);
 
+      let requestBundleId = bundleId;
+      if (cmpMeta.encapsulation === ENCAPSULATION_TYPE.ScopedCss || cmpMeta.encapsulation === ENCAPSULATION_TYPE.ShadowDom) {
+        requestBundleId += '.sc';
+      }
+      requestBundleId += '.js';
+
       // create the bundle filePath we'll be reading
-      const jsFilePath = normalizePath(config.sys.path.join(appBuildDir, `${bundleId}.js`));
+      const jsFilePath = normalizePath(config.sys.path.join(appBuildDir, requestBundleId));
 
       if (!pendingBundleFileReads[jsFilePath]) {
         // not already actively reading this file
