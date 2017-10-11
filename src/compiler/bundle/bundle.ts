@@ -3,7 +3,7 @@ import { bundleModules } from './bundle-modules';
 import { bundleStyles } from './bundle-styles';
 import { buildError, catchError, hasError } from '../util';
 import { generateBundles } from './generate-bundles';
-// import { generateComponentRegistry } from './bundle-registry';
+import { generateComponentRegistry } from './bundle-registry';
 
 
 export function bundle(config: BuildConfig, ctx: BuildContext) {
@@ -35,13 +35,14 @@ export function bundle(config: BuildConfig, ctx: BuildContext) {
   }).then(() => {
     // both styles and modules are done bundling
 
-    // ctx.registry = generateComponentRegistry(ctx.manifest, styleResults, moduleResults);
-
+    // generate the actual files to write
     generateBundles(config, ctx, manifestBundles);
+
+    // create a registry of all the bundles/components
+    ctx.registry = generateComponentRegistry(manifestBundles);
 
   }).catch(err => {
     catchError(ctx.diagnostics, err);
-
   });
 }
 

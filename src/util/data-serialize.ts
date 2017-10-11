@@ -157,6 +157,12 @@ export function formatLoadComponents(
 export function formatLoadStyles(namespace: string, bundleStyles: CompiledModeStyles[], scoped: boolean) {
   const args: string[] = [];
 
+  bundleStyles = bundleStyles.sort((a, b) => {
+    if (a.tag < b.tag) return -1;
+    if (a.tag > b.tag) return 1;
+    return 0;
+  });
+
   bundleStyles.forEach(bundleStyle => {
     // arg EVEN
     args.push(bundleStyle.tag);

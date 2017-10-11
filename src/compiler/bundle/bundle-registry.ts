@@ -1,65 +1,63 @@
-import { ComponentRegistry, Manifest, ModuleResults, StylesResults } from '../../util/interfaces';
+import { ComponentMeta, CompiledStyle, CompiledModule, ComponentRegistry, ManifestBundle } from '../../util/interfaces';
 
 
-export function generateComponentRegistry(manifest: Manifest, styleResults: StylesResults, moduleResults: ModuleResults) {
-  const registry: ComponentRegistry = {};
+export function generateComponentRegistry(manifestBundles: ManifestBundle[]) {
+  let registryComponents: ComponentMeta[] = [];
 
-  // create the minimal registry component data for each bundle
-  styleResults.bundleStyles.forEach(moduleFile => {
-    // a bundle id is made of of each component tag name
-    // separated by a period
-    const componentTags = bundleId.split('.');
-    const styleResult = styleResults[bundleId];
-
-    componentTags.forEach(tag => {
-      const registryTag = tag.toLowerCase();
-
-      // merge up the style id to the style data
-      if (!registry[registryTag]) {
-        const moduleFile = manifest.modulesFiles.find(modulesFile => {
-          return modulesFile.cmpMeta.tagNameMeta === tag;
-        });
-
-        if (moduleFile) {
-          registry[registryTag] = moduleFile.cmpMeta;
-        }
-      }
-
-      if (registry[registryTag]) {
-        registry[registryTag].stylesMeta = registry[registryTag].stylesMeta || {};
-
-        if (styleResult) {
-          Object.keys(styleResult).forEach(modeName => {
-            registry[registryTag].stylesMeta[modeName] = registry[registryTag].stylesMeta[modeName] || {};
-            registry[registryTag].stylesMeta[modeName].styleId = styleResult[modeName].styleId;
-          });
-        }
-      }
-    });
+  manifestBundles.forEach(manifestBundle => {
+    fillBundleRegistry(registryComponents, manifestBundle);
   });
 
-  Object.keys(moduleResults).forEach(bundleId => {
-    const componentTags = bundleId.split('.');
-    const moduleId = moduleResults[bundleId].moduleId;
+  registryComponents = registryComponents.sort((a, b) => {
+    if (a.tagNameMeta < b.tagNameMeta) return -1;
+    if (a.tagNameMeta > b.tagNameMeta) return 1;
+    return 0;
+  });
 
-    componentTags.forEach(tag => {
-      const registryTag = tag.toLowerCase();
+  const registry: ComponentRegistry = {};
 
-      if (!registry[registryTag]) {
-        const moduleFile = manifest.modulesFiles.find(modulesFile => {
-          return modulesFile.cmpMeta.tagNameMeta === tag;
-        });
-
-        if (moduleFile) {
-          registry[registryTag] = moduleFile.cmpMeta;
-        }
-      }
-
-      if (registry[registryTag]) {
-        registry[registryTag].moduleId = moduleId;
-      }
-    });
+  registryComponents.forEach(cmpMeta => {
+    registry[cmpMeta.tagNameMeta] = cmpMeta;
   });
 
   return registry;
+}
+
+
+function fillBundleRegistry(registryComponents: ComponentMeta[], manifestBundle: ManifestBundle) {
+  manifestBundle.moduleFiles.filter(m => m.cmpMeta).forEach(moduleFile => {
+
+    fillModuleRegistry(manifestBundle.compiledModule, moduleFile.cmpMeta);
+    fillStylesRegistry(manifestBundle.compiledStyles, moduleFile.cmpMeta);
+
+    registryComponents.push(moduleFile.cmpMeta);
+  });
+}
+
+
+export function fillModuleRegistry(compiledModule: CompiledModule, cmpMeta: ComponentMeta) {
+  // set which module id this component is in
+  cmpMeta.moduleId = compiledModule.moduleId;
+}
+
+
+export function fillStylesRegistry(compiledStyles: CompiledStyle[], cmpMeta: ComponentMeta) {
+  cmpMeta.stylesMeta = cmpMeta.stylesMeta || {};
+
+  if (!compiledStyles || !compiledStyles.length) {
+    return;
+  }
+
+  compiledStyles.sort((a, b) => {
+    if (a.modeName < b.modeName) return -1;
+    if (a.modeName > b.modeName) return 1;
+    return 0;
+
+  }).forEach(compiledModeStyle => {
+    const modeName = compiledModeStyle.modeName;
+
+    cmpMeta.stylesMeta[modeName] = cmpMeta.stylesMeta[modeName] || {};
+
+    cmpMeta.stylesMeta[modeName].styleId = compiledModeStyle.styleId;
+  });
 }

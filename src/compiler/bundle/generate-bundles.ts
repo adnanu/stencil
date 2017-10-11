@@ -12,6 +12,8 @@ export function generateBundles(config: BuildConfig, ctx: BuildContext, manifest
 
 
 function generateBundleFiles(config: BuildConfig, ctx: BuildContext, manifestBundle: ManifestBundle) {
+  manifestBundle.compiledStyles = [];
+
   generateLoadComponents(config, ctx, manifestBundle);
 
   const modes = getManifestBundleModes(manifestBundle.moduleFiles);
@@ -24,7 +26,7 @@ function generateBundleFiles(config: BuildConfig, ctx: BuildContext, manifestBun
     // in this case, still create the many modes, but add
     // the same default to each of them
     modes.filter(m => m !== DEFAULT_STYLE_MODE).forEach(modeName => {
-      const bundleStyles = manifestBundle.compiledModeStyles.filter(m => m === DEFAULT_STYLE_MODE);
+      const bundleStyles = manifestBundle.compiledModeStyles.filter(cms => cms.modeName === DEFAULT_STYLE_MODE);
       bundleStyles.push(...manifestBundle.compiledModeStyles.filter(cms => cms.modeName === modeName));
 
       generateBundleModeFiles(config, ctx, manifestBundle, modeName, bundleStyles);
@@ -62,6 +64,11 @@ function generateBundleModeFiles(config: BuildConfig, ctx: BuildContext, manifes
     let scopedStyles = false;
     const unscopedStyleContent = formatLoadStyles(config.namespace, bundleStyles, scopedStyles);
     const styleId = generateStyleId(config, modeName, unscopedStyleContent);
+
+    manifestBundle.compiledStyles.push({
+      modeName: modeName,
+      styleId: styleId
+    });
 
     // unscoped styles
     writeBundleFile(config, ctx, moduleId, styleId, [

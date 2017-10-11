@@ -300,7 +300,8 @@ export interface ManifestBundle {
   components?: string[];
   moduleFiles: ModuleFile[];
   compiledModeStyles?: CompiledModeStyles[];
-  compiledModule?: CompiledModules;
+  compiledModule?: CompiledModule;
+  compiledStyles?: CompiledStyle[];
   priority?: number;
 }
 
@@ -314,9 +315,15 @@ export interface CompiledModeStyles {
 }
 
 
-export interface CompiledModules {
+export interface CompiledModule {
   moduleId?: string;
   moduleText?: string;
+}
+
+
+export interface CompiledStyle {
+  styleId?: string;
+  modeName?: string;
 }
 
 
@@ -813,7 +820,7 @@ export interface ComponentModule {
 
 
 export interface ComponentRegistry {
-  // registry tag must always be UPPER-CASE
+  // registry tag must always be lower-case
   [registryTag: string]: ComponentMeta;
 }
 
