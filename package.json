@@ -1,6 +1,6 @@
 {
   "name": "@stencil/core",
-  "version": "0.0.6-11",
+  "version": "0.0.6-13",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -26,7 +26,8 @@
   "dependencies": {
     "chokidar": "1.7.0",
     "node-sass": "4.5.3",
-    "typescript": "2.5.3"
+    "typescript": "2.5.3",
+    "util.promisify": "1.0.0"
   },
   "devDependencies": {
     "@types/babel-core": "^6.7.14",
@@ -36,6 +37,7 @@
     "@types/jest": "18.1.1",
     "@types/jsdom": "^11.0.0",
     "@types/node": "7.0.5",
+    "@types/util.promisify": "^1.0.0",
     "babel-cli": "^6.24.0",
     "babel-core": "^6.24.0",
     "babel-plugin-transform-define": "^1.2.0",
@@ -67,7 +69,6 @@
     "tslint": "^5.6.0",
     "tslint-ionic-rules": "0.0.8",
     "uglify-es": "3.1.2",
-    "util.promisify": "^1.0.0",
     "webpack": "^3.5.4",
     "workbox-build": "2.0.3"
   },

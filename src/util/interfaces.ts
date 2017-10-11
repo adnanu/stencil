@@ -43,8 +43,8 @@ export interface EventListenerCallback {
 }
 
 
-export interface EventEmitter {
-  emit: (data?: any) => void;
+export interface EventEmitter<T= any> {
+  emit: (data?: T) => void;
 }
 
 
@@ -950,8 +950,8 @@ export interface PropConnect {
 }
 
 
-export interface EventEmitterData {
-  detail?: any;
+export interface EventEmitterData<T = any> {
+  detail?: T;
   bubbles?: boolean;
   cancelable?: boolean;
   composed?: boolean;
@@ -1299,4 +1299,24 @@ export interface ContextData {
 
 export interface HostElementData {
   name: string;
+}
+
+export interface ComponentWillLoad {
+  componentWillLoad: () => Promise<void> | void;
+}
+
+export interface ComponentDidLoad {
+  componentDidLoad: () => void;
+}
+
+export interface ComponentWillUpdate {
+  componentWillUpdate: () => Promise<void> | void;
+}
+
+export interface ComponentDidUpdate {
+  componentDidUpdate: () => void;
+}
+
+export interface ComponentDidUnload {
+  componentDidUnload: () => void;
 }

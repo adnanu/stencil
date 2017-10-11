@@ -1,4 +1,3 @@
-import { SLOT_TAG } from '../../../../util/constants';
 import * as ts from 'typescript';
 import * as util from '../util';
 
@@ -57,10 +56,10 @@ function upgradeTagName(tagName: ts.Expression) {
   return tagName;
 }
 
-function upgradeProps(props: ts.Expression): ts.NullLiteral | ts.ObjectLiteralExpression {
+function upgradeProps(props: ts.Expression): ts.NullLiteral | ts.ObjectLiteralExpression | ts.CallExpression {
 
   let upgradedProps: util.ObjectMap = {};
-  let propName: string;
+  let propHackValue: any;
 
   if (!ts.isObjectLiteralExpression(props)) {
     return ts.createNull();
@@ -91,11 +90,22 @@ function upgradeProps(props: ts.Expression): ts.NullLiteral | ts.ObjectLiteralEx
     }
 
     // If the propname is p or a then spread the value into props
-    if (propName === 'p' || propName === 'a') {
+    if (propName === 'a') {
       return {
         ...newProps,
         ...(propValue as util.ObjectMap)
       };
+    }
+
+    if (propName === 'p') {
+      if (util.isInstanceOfObjectMap(propValue)) {
+        return {
+          ...newProps,
+          ...(propValue as util.ObjectMap)
+        };
+      } else {
+        propHackValue = propValue;
+      }
     }
 
     // If the propname is o then we need to update names and then spread into props
@@ -103,7 +113,7 @@ function upgradeProps(props: ts.Expression): ts.NullLiteral | ts.ObjectLiteralEx
       const eventListeners = Object.keys(propValue).reduce((newValue, eventName) => {
         return {
           ...newValue,
-          [`on${eventName}`]: propValue[eventName]
+          [`on${eventName}`]: (propValue as util.ObjectMap)[eventName]
         };
       }, {});
       return {
@@ -111,6 +121,7 @@ function upgradeProps(props: ts.Expression): ts.NullLiteral | ts.ObjectLiteralEx
         ...eventListeners
       };
     }
+    return newProps;
   }, upgradedProps);
 
   try {
@@ -122,7 +133,23 @@ function upgradeProps(props: ts.Expression): ts.NullLiteral | ts.ObjectLiteralEx
     throw e;
   }
 
-  return util.objectMapToObjectLiteral(upgradedProps);
+  let response = util.objectMapToObjectLiteral(upgradedProps);
+
+  // Looks like someone used the props hack. So we need to create the following code:
+  // Object.assign({}, upgradedProps, propHackValue);
+  if (propHackValue) {
+    const emptyObjectLiteral = ts.createObjectLiteral();
+    return ts.createCall(
+      ts.createPropertyAccess(
+        ts.createIdentifier('Object'),
+        ts.createIdentifier('assign')
+      ),
+      undefined,
+      [emptyObjectLiteral, response, propHackValue]
+    );
+  }
+
+  return response;
 }
 
 function upgradeChildren(children: ts.Expression[]): ts.Expression[] {
