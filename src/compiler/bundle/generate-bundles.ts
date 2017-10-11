@@ -12,133 +12,150 @@ export function generateBundles(config: BuildConfig, ctx: BuildContext, manifest
 
 
 function generateBundleFiles(config: BuildConfig, ctx: BuildContext, manifestBundle: ManifestBundle) {
-  manifestBundle.compiledStyles = [];
+  manifestBundle.moduleFiles.forEach(moduleFile => {
+    moduleFile.cmpMeta.bundleIds = {};
+  });
 
-  generateLoadComponents(config, ctx, manifestBundle);
+  let moduleText = formatLoadComponents(config.namespace, MODULE_ID, manifestBundle.compiledModuleText, manifestBundle.moduleFiles);
+
+  if (config.minifyJs) {
+    // minify js
+    const minifyJsResults = config.sys.minifyJs(moduleText);
+    minifyJsResults.diagnostics.forEach(d => {
+      ctx.diagnostics.push(d);
+    });
+
+    if (!minifyJsResults.diagnostics.length) {
+      moduleText = minifyJsResults.output + ';';
+    }
+  }
 
   const modes = getManifestBundleModes(manifestBundle.moduleFiles);
   const hasDefaultMode = containsDefaultMode(modes);
   const hasNonDefaultModes = containsNonDefaultModes(modes);
 
   if (hasDefaultMode && hasNonDefaultModes) {
-    // it's possible one component only has a default
-    // and other components in the bundle have many modes
-    // in this case, still create the many modes, but add
-    // the same default to each of them
     modes.filter(m => m !== DEFAULT_STYLE_MODE).forEach(modeName => {
       const bundleStyles = manifestBundle.compiledModeStyles.filter(cms => cms.modeName === DEFAULT_STYLE_MODE);
       bundleStyles.push(...manifestBundle.compiledModeStyles.filter(cms => cms.modeName === modeName));
 
-      generateBundleModeFiles(config, ctx, manifestBundle, modeName, bundleStyles);
+      writeBundleFile(config, ctx, manifestBundle, moduleText, modeName, bundleStyles);
     });
 
-  } else if (modes.length > 0) {
-    // has all modes, or just a default mode
+  } else if (modes.length) {
     modes.forEach(modeName => {
       const bundleStyles = manifestBundle.compiledModeStyles.filter(cms => cms.modeName === modeName);
 
-      generateBundleModeFiles(config, ctx, manifestBundle, modeName, bundleStyles);
+      writeBundleFile(config, ctx, manifestBundle, moduleText, modeName, bundleStyles);
     });
 
   } else {
-    // no modes at all
-    generateBundleModeFiles(config, ctx, manifestBundle, null, []);
+    writeBundleFile(config, ctx, manifestBundle, moduleText, null, []);
   }
 }
 
 
-export function containsDefaultMode(modes: string[]) {
-  return modes.some(m => m === DEFAULT_STYLE_MODE);
-}
+export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifestBundle: ManifestBundle, moduleText: string, modeName: string, bundleStyles: CompiledModeStyles[]) {
+  const unscopedStyleText = formatLoadStyles(config.namespace, bundleStyles, false);
 
+  const unscopedContents = [
+    generatePreamble(config)
+  ];
+  if (unscopedStyleText.length) {
+    unscopedContents.push(unscopedStyleText);
+  }
+  unscopedContents.push(moduleText);
 
-export function containsNonDefaultModes(modes: string[]) {
-  return modes.length > 0 && modes.some(m => m !== DEFAULT_STYLE_MODE);
-}
+  let unscopedContent = unscopedContents.join('\n');
 
+  const bundleId = getBundleId(config, manifestBundle.components, modeName, unscopedContent);
 
-function generateBundleModeFiles(config: BuildConfig, ctx: BuildContext, manifestBundle: ManifestBundle, modeName: string, bundleStyles: CompiledModeStyles[]) {
-  const moduleId = manifestBundle.compiledModule.moduleId;
+  unscopedContent = replaceDefaulBundleId(unscopedContent, bundleId);
 
-  if (modeName && bundleStyles.length) {
-    let scopedStyles = false;
-    const unscopedStyleContent = formatLoadStyles(config.namespace, bundleStyles, scopedStyles);
-    const styleId = generateStyleId(config, modeName, unscopedStyleContent);
+  const unscopedFileName = getBundleFileName(bundleId, false);
 
-    manifestBundle.compiledStyles.push({
-      modeName: modeName,
-      styleId: styleId
-    });
-
-    // unscoped styles
-    writeBundleFile(config, ctx, moduleId, styleId, [
-      unscopedStyleContent,
-      manifestBundle.compiledModule.moduleText
-    ], scopedStyles);
-
-    if (bundleRequiresScopedStyles(manifestBundle.moduleFiles)) {
-      // scoped styles (uses the same style id)
-      scopedStyles = true;
-      const scopedStyleContent = formatLoadStyles(config.namespace, bundleStyles, scopedStyles);
-      writeBundleFile(config, ctx, moduleId, styleId, [
-        scopedStyleContent,
-        manifestBundle.compiledModule.moduleText
-      ], scopedStyles);
+  manifestBundle.moduleFiles.forEach(moduleFile => {
+    if (modeName) {
+      moduleFile.cmpMeta.bundleIds[modeName] = bundleId;
+    } else {
+      moduleFile.cmpMeta.bundleIds[DEFAULT_STYLE_MODE] = bundleId;
     }
+  });
 
-  } else {
-    // no styles at all
-    writeBundleFile(config, ctx, moduleId, null, [
-      manifestBundle.compiledModule.moduleText
-    ], false);
-  }
-}
+  const buildNamespace = config.namespace.toLowerCase();
 
-
-export function writeBundleFile(config: BuildConfig, ctx: BuildContext, moduleId: string, styleId: string, contents: string[], scoped: boolean) {
-  const fileContent = generatePreamble(config) + contents.join('\n');
-
-  const fileName = getBundleFileName(moduleId, styleId, scoped);
-
-  const wwwBuildPath = normalizePath(config.sys.path.join(
+  const unscopedWwwBuildPath = normalizePath(config.sys.path.join(
     config.buildDir,
-    config.namespace.toLowerCase(),
-    fileName
+    buildNamespace,
+    unscopedFileName
   ));
 
   // use wwwFilePath as the cache key
-  if (ctx.compiledFileCache[wwwBuildPath] === fileContent) {
+  if (ctx.compiledFileCache[unscopedWwwBuildPath] === unscopedContent) {
     // unchanged, no need to resave
     return false;
   }
 
   // cache for later
-  ctx.compiledFileCache[wwwBuildPath] = fileContent;
+  ctx.compiledFileCache[unscopedWwwBuildPath] = unscopedContent;
 
   if (config.generateWWW) {
-    ctx.filesToWrite[wwwBuildPath] = fileContent;
+    ctx.filesToWrite[unscopedWwwBuildPath] = unscopedContent;
   }
 
   if (config.generateDistribution) {
-    const distPath = normalizePath(config.sys.path.join(
+    const unscopedDistPath = normalizePath(config.sys.path.join(
       config.distDir,
-      config.namespace.toLowerCase(),
-      fileName
+      buildNamespace,
+      unscopedFileName
     ));
 
-    ctx.filesToWrite[distPath] = fileContent;
+    ctx.filesToWrite[unscopedDistPath] = unscopedContent;
+  }
+
+  if (modeName && bundleRequiresScopedStyles(manifestBundle.moduleFiles)) {
+    const scopedStyleText = formatLoadStyles(config.namespace, bundleStyles, true);
+
+    const scopedContents = [
+      generatePreamble(config)
+    ];
+
+    if (scopedStyleText.length) {
+      scopedContents.push(scopedStyleText);
+    }
+    scopedContents.push(moduleText);
+
+    const scopedFileContent = replaceDefaulBundleId(scopedContents.join('\n'), bundleId);
+
+    const scopedFileName = getBundleFileName(bundleId, true);
+
+    if (config.generateWWW) {
+      const scopedWwwPath = normalizePath(config.sys.path.join(
+        config.buildDir,
+        buildNamespace,
+        scopedFileName
+      ));
+
+      ctx.filesToWrite[scopedWwwPath] = scopedFileContent;
+    }
+
+    if (config.generateDistribution) {
+      const scopedDistPath = normalizePath(config.sys.path.join(
+        config.distDir,
+        buildNamespace,
+        scopedFileName
+      ));
+
+      ctx.filesToWrite[scopedDistPath] = scopedFileContent;
+    }
   }
 
   return true;
 }
 
 
-export function getBundleFileName(moduleId: string, styleId: string, scoped: boolean) {
+export function getBundleFileName(moduleId: string, scoped: boolean) {
   const fileName: string[] = [moduleId];
-
-  if (styleId) {
-    fileName.push(styleId);
-  }
 
   if (scoped) {
     fileName.push('sc');
@@ -150,47 +167,17 @@ export function getBundleFileName(moduleId: string, styleId: string, scoped: boo
 }
 
 
-function generateLoadComponents(config: BuildConfig, ctx: BuildContext, manifestBundle: ManifestBundle) {
-  manifestBundle.compiledModule.moduleText = formatLoadComponents(config.namespace, STENCIL_BUNDLE_ID, manifestBundle.compiledModule.moduleText, manifestBundle.moduleFiles);
-
-  if (config.minifyJs) {
-    // minify js
-    const minifyJsResults = config.sys.minifyJs(manifestBundle.compiledModule.moduleText);
-    minifyJsResults.diagnostics.forEach(d => {
-      ctx.diagnostics.push(d);
-    });
-
-    if (!minifyJsResults.diagnostics.length) {
-      manifestBundle.compiledModule.moduleText = minifyJsResults.output + ';';
-    }
-  }
-
-  if (config.hashFileNames) {
-    // create module id from hashing the content
-    manifestBundle.compiledModule.moduleId = config.sys.generateContentHash(manifestBundle.compiledModule.moduleText, config.hashedFileNameLength);
-
-  } else {
-    // create module id from list of component tags in this file
-    // can get a lil too long, so let's just use the first tag
-    manifestBundle.compiledModule.moduleId = manifestBundle.components[0];
-  }
-
-  // replace the known bundle id template with the newly created bundle id
-  manifestBundle.compiledModule.moduleText = manifestBundle.compiledModule.moduleText.replace(MODULE_ID_REGEX, manifestBundle.compiledModule.moduleId);
-}
-
-
-export function generateStyleId(config: BuildConfig, modeName: string, styleContent: string) {
+export function getBundleId(config: BuildConfig, components: string[], modeName: string, content: string) {
   if (config.hashFileNames) {
     // create style id from hashing the content
-    return config.sys.generateContentHash(styleContent, config.hashedFileNameLength);
+    return config.sys.generateContentHash(content, config.hashedFileNameLength);
   }
 
-  if (modeName === DEFAULT_STYLE_MODE) {
-    return null;
+  if (modeName === DEFAULT_STYLE_MODE || !modeName) {
+    return components[0];
   }
 
-  return modeName;
+  return components[0] + '.' + modeName;
 }
 
 
@@ -218,5 +205,20 @@ export function bundleRequiresScopedStyles(moduleFiles: ModuleFile[]) {
 }
 
 
-const STENCIL_BUNDLE_ID = '__STENCIL__BUNDLE__ID__';
-const MODULE_ID_REGEX = new RegExp(STENCIL_BUNDLE_ID, 'g');
+export function containsDefaultMode(modes: string[]) {
+  return modes.some(m => m === DEFAULT_STYLE_MODE);
+}
+
+
+export function containsNonDefaultModes(modes: string[]) {
+  return modes.length > 0 && modes.some(m => m !== DEFAULT_STYLE_MODE);
+}
+
+
+function replaceDefaulBundleId(fileContent: string, newModuleId: string) {
+  return fileContent.replace(MODULE_ID_REGEX, newModuleId);
+}
+
+
+const MODULE_ID = '__STENCIL__MODULE__ID__';
+const MODULE_ID_REGEX = new RegExp(MODULE_ID, 'g');

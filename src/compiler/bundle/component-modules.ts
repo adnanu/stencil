@@ -11,7 +11,7 @@ export function generateComponentModules(config: BuildConfig, ctx: BuildContext,
   if (canSkipBuild(config, ctx, manifestBundle.moduleFiles, bundleCacheKey)) {
     // don't bother bundling if this is a change build but
     // none of the changed files are modules or components
-    manifestBundle.compiledModule.moduleText = ctx.moduleBundleOutputs[bundleCacheKey];
+    manifestBundle.compiledModuleText = ctx.moduleBundleOutputs[bundleCacheKey];
     return Promise.resolve();
   }
 
@@ -57,14 +57,14 @@ function bundleComponents(config: BuildConfig, ctx: BuildContext, manifestBundle
     }).then(results => {
       // module bundling finished, assign its content to the user's bundle
       // wrap our component code with our own iife
-      manifestBundle.compiledModule.moduleText = wrapComponentImports(results.code.trim());
+      manifestBundle.compiledModuleText = wrapComponentImports(results.code.trim());
 
       // replace build time expressions, like process.env.NODE_ENV === 'production'
       // with a hard coded boolean
-      manifestBundle.compiledModule.moduleText = buildExpressionReplacer(config, manifestBundle.compiledModule.moduleText);
+      manifestBundle.compiledModuleText = buildExpressionReplacer(config, manifestBundle.compiledModuleText);
 
       // cache for later
-      ctx.moduleBundleOutputs[bundleCacheKey] = manifestBundle.compiledModule.moduleText;
+      ctx.moduleBundleOutputs[bundleCacheKey] = manifestBundle.compiledModuleText;
     });
   });
 }

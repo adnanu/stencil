@@ -1,4 +1,4 @@
-import { ComponentMeta, CompiledStyle, CompiledModule, ComponentRegistry, ManifestBundle } from '../../util/interfaces';
+import { ComponentMeta, ComponentRegistry, ManifestBundle } from '../../util/interfaces';
 
 
 export function generateComponentRegistry(manifestBundles: ManifestBundle[]) {
@@ -27,37 +27,26 @@ export function generateComponentRegistry(manifestBundles: ManifestBundle[]) {
 function fillBundleRegistry(registryComponents: ComponentMeta[], manifestBundle: ManifestBundle) {
   manifestBundle.moduleFiles.filter(m => m.cmpMeta).forEach(moduleFile => {
 
-    fillModuleRegistry(manifestBundle.compiledModule, moduleFile.cmpMeta);
-    fillStylesRegistry(manifestBundle.compiledStyles, moduleFile.cmpMeta);
+    // fillStylesRegistry(manifestBundle.compiledStyles, moduleFile.cmpMeta);
 
     registryComponents.push(moduleFile.cmpMeta);
   });
 }
 
 
-export function fillModuleRegistry(compiledModule: CompiledModule, cmpMeta: ComponentMeta) {
-  // set which module id this component is in
-  cmpMeta.moduleId = compiledModule.moduleId;
-}
+// export function fillStylesRegistry(compiledStyles: CompiledStyle[], cmpMeta: ComponentMeta) {
+//   cmpMeta.stylesMeta = cmpMeta.stylesMeta || {};
 
+//   compiledStyles.sort((a, b) => {
+//     if (a.modeName < b.modeName) return -1;
+//     if (a.modeName > b.modeName) return 1;
+//     return 0;
 
-export function fillStylesRegistry(compiledStyles: CompiledStyle[], cmpMeta: ComponentMeta) {
-  cmpMeta.stylesMeta = cmpMeta.stylesMeta || {};
+//   }).forEach(compiledModeStyle => {
+//     const modeName = compiledModeStyle.modeName;
 
-  if (!compiledStyles || !compiledStyles.length) {
-    return;
-  }
+//     cmpMeta.stylesMeta[modeName] = cmpMeta.stylesMeta[modeName] || {};
 
-  compiledStyles.sort((a, b) => {
-    if (a.modeName < b.modeName) return -1;
-    if (a.modeName > b.modeName) return 1;
-    return 0;
-
-  }).forEach(compiledModeStyle => {
-    const modeName = compiledModeStyle.modeName;
-
-    cmpMeta.stylesMeta[modeName] = cmpMeta.stylesMeta[modeName] || {};
-
-    cmpMeta.stylesMeta[modeName].styleId = compiledModeStyle.styleId;
-  });
-}
+//     cmpMeta.stylesMeta[modeName].styleId = compiledModeStyle.styleId;
+//   });
+// }

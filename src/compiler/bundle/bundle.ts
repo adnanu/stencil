@@ -55,7 +55,7 @@ export function getManifestBundles(moduleFiles: ModuleFile[], bundles: Bundle[],
       components: bundle.components.sort().slice(),
       moduleFiles: [],
       compiledModeStyles: [],
-      compiledModule: {},
+      compiledModuleText: '',
       priority: bundle.priority
     };
 

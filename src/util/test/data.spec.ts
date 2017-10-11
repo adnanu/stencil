@@ -341,26 +341,37 @@ describe('data serialize/parse', () => {
       expect(cmpMeta.membersMeta.mode.memberType).toBe(MEMBER_TYPE.Prop);
     });
 
-    it('should set all of the modes', () => {
-      cmpMeta.stylesMeta = {
-        ios: { styleId: 'abc' },
-        md: { styleId: 'def' }
+    it('should set all of the bundle ids as an object', () => {
+      cmpMeta.bundleIds = {
+        ios: 'abc',
+        md: 'def'
       };
 
       const format = formatLoadComponentRegistry(cmpMeta);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.styleIds.ios).toBe('abc');
-      expect(cmpMeta.styleIds.md).toBe('def');
+      expect(cmpMeta.bundleIds.ios).toBe('abc');
+      expect(cmpMeta.bundleIds.md).toBe('def');
     });
 
-    it('should set mode moduleId', () => {
-      cmpMeta.moduleId = '1.21';
+    it('should set the default bundle id as a string', () => {
+      cmpMeta.bundleIds = {
+        $: 'default-id'
+      };
 
       const format = formatLoadComponentRegistry(cmpMeta);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.moduleId).toEqual('1.21');
+      expect(cmpMeta.bundleIds).toBe('default-id');
+    });
+
+    it('should set the bundle id as a string', () => {
+      (cmpMeta.bundleIds as any) = 'bundleid';
+
+      const format = formatLoadComponentRegistry(cmpMeta);
+      cmpMeta = parseComponentRegistry(format, {});
+
+      expect(cmpMeta.bundleIds).toBe('bundleid');
     });
 
     it('should set tagName', () => {

@@ -1,27 +1,27 @@
 import { addEventListener, enableEventListener } from '../core/instance/listeners';
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
-import { ComponentMeta, ComponentRegistry, CoreContext,
-  EventEmitterData, HostElement, AppGlobal, LoadComponentRegistry,
-  ModuleCallbacks, PlatformApi } from '../util/interfaces';
+import { AppGlobal, BundleCallbacks, ComponentMeta, ComponentRegistry, CoreContext,
+  EventEmitterData, HostElement, LoadComponentRegistry, PlatformApi } from '../util/interfaces';
 import { createDomControllerClient } from './dom-controller-client';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createRendererPatch } from '../core/renderer/patch';
 import { createQueueClient } from './queue-client';
+import { getBundleId } from '../core/instance/connected';
 import { h, t } from '../core/renderer/h';
 import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
 import { SSR_VNODE_ID } from '../util/constants';
-import { useShadowDom, useScopedCss } from '../core/renderer/encapsulation';
+import { useShadowDom } from '../core/renderer/encapsulation';
 
 
 export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: Window, doc: Document, publicPath: string, hydratedCssClass: string): PlatformApi {
   const registry: ComponentRegistry = { 'html': {} };
   const moduleImports: {[tag: string]: any} = {};
-  const moduleCallbacks: ModuleCallbacks = {};
-  const loadedModules: {[moduleId: string]: boolean} = {};
+  const bundleCallbacks: BundleCallbacks = {};
+  const loadedBundles: {[bundleId: string]: boolean} = {};
   const styleTemplates: StyleTemplates = {};
-  const pendingModuleRequests: {[url: string]: boolean} = {};
+  const pendingBundleRequests: {[url: string]: boolean} = {};
   const controllerComponents: {[tag: string]: HostElement} = {};
   const domApi = createDomApi(doc);
   const now = () => win.performance.now();
@@ -169,8 +169,8 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
   }
 
 
-  App.loadComponents = function loadComponents(moduleId, importFn) {
-    // jsonp callback from requested modules
+  App.loadComponents = function loadComponents(bundleId, importFn) {
+    // jsonp callback from requested bundles
     const args = arguments;
 
     // import component function
@@ -179,26 +179,26 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
     for (var i = 2; i < args.length; i++) {
       // parse the external component data into internal component meta data
-      // then add our set of prototype methods to the component module
+      // then add our set of prototype methods to the component bundle
       parseComponentMeta(registry, moduleImports, args[i]);
     }
 
-    // fire off all the callbacks waiting on this module to load
-    var callbacks = moduleCallbacks[moduleId];
+    // fire off all the callbacks waiting on this bundle to load
+    var callbacks = bundleCallbacks[bundleId];
     if (callbacks) {
       for (i = 0; i < callbacks.length; i++) {
         callbacks[i]();
       }
-      delete moduleCallbacks[moduleId];
+      delete bundleCallbacks[bundleId];
     }
 
-    // remember that we've already loaded this module
-    loadedModules[moduleId] = true;
+    // remember that we've already loaded this bundle
+    loadedBundles[bundleId] = true;
   };
 
 
   App.loadStyles = function loadStyles() {
-    // jsonp callback from requested modules
+    // jsonp callback from requested bundles
     // either directly add styles to document.head or add the
     // styles to a template tag to be cloned later for shadow roots
     const args = arguments;
@@ -243,36 +243,36 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
 
 
   function loadBundle(cmpMeta: ComponentMeta, elm: HostElement, cb: Function): void {
-    let moduleId = cmpMeta.moduleId;
+    const bundleId = getBundleId(supportsNativeShadowDom, cmpMeta, elm.mode);
 
-    if (loadedModules[moduleId]) {
-      // sweet, we've already loaded this module
+    if (loadedBundles[bundleId]) {
+      // sweet, we've already loaded this bundle
       cb();
 
     } else {
-      // never seen this module before, let's start the request
+      // never seen this bundle before, let's start the request
       // and add it to the callbacks to fire when it has loaded
-      (moduleCallbacks[moduleId] = moduleCallbacks[moduleId] || []).push(cb);
+      (bundleCallbacks[bundleId] = bundleCallbacks[bundleId] || []).push(cb);
 
-      // figure out which module to request and kick it off
-      requestModule(getModuleId(supportsNativeShadowDom, cmpMeta, elm.mode));
+      // figure out which bundle to request and kick it off
+      requestBundle(bundleId);
     }
   }
 
 
-  function requestModule(moduleId: string) {
+  function requestBundle(bundleId: string) {
     // create the url we'll be requesting
-    const url = publicPath + moduleId + '.js';
+    const url = publicPath + bundleId + '.js';
 
-    if (pendingModuleRequests[url]) {
+    if (pendingBundleRequests[url]) {
       // we're already actively requesting this url
       // no need to do another request
       return;
     }
 
-    // let's kick off the module request
+    // let's kick off the bundle request
     // remember that we're now actively requesting this url
-    pendingModuleRequests[url] = true;
+    pendingBundleRequests[url] = true;
 
     // create a sript element to add to the document.head
     var scriptElm = domApi.$createElement('script');
@@ -289,7 +289,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
       domApi.$removeChild(scriptElm.parentNode, scriptElm);
 
       // remove from our list of active requests
-      delete pendingModuleRequests[url];
+      delete pendingBundleRequests[url];
     }
 
     // add script completed listener to this script element
@@ -348,31 +348,6 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
   }
 
   return plt;
-}
-
-
-export function getModuleId(supportsNativeShadowDom: boolean, cmpMeta: ComponentMeta, mode: string) {
-  // figure out which module to request and kick it off
-  // figure out which module file we need to request
-  const styleId = cmpMeta.styleIds[mode] || cmpMeta.styleIds.$;
-  if (styleId) {
-    // this component DOES have styles
-
-    return `${cmpMeta.moduleId}.${styleId}` + ((useScopedCss(supportsNativeShadowDom, cmpMeta)) ?
-              // use the scoped css version for styling
-              // either this component wants to use scoped css
-              // or it wants shadow css, but browser doesn't support it
-              // moduleId.styleId.sc
-              '.sc'
-              :
-              // use the exact css the user wrote
-              // either it's shadow dom css and this browser supports shadow dom
-              // or this component doesn't want to use scoped/shadow css at all
-              // moduleId.styleId
-              '');
-  }
-
-  return cmpMeta.moduleId;
 }
 
 

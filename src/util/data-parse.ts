@@ -19,29 +19,29 @@ export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, r
   };
 
   // this comonent's module id
-  cmpMeta.moduleId = cmpRegistryData[1];
+  // cmpMeta.moduleId = cmpRegistryData[1];
 
   // map of the modes w/ bundle id and style data
-  cmpMeta.styleIds = cmpRegistryData[2] || {};
+  cmpMeta.bundleIds = cmpRegistryData[1];
 
   // parse member meta
   // this data only includes props that are attributes that need to be observed
   // it does not include all of the props yet
-  parseMembersData(cmpMeta, cmpRegistryData[3], attr);
+  parseMembersData(cmpMeta, cmpRegistryData[2], attr);
 
   // encapsulation
-  cmpMeta.encapsulation = cmpRegistryData[4];
+  cmpMeta.encapsulation = cmpRegistryData[3];
 
   // slot
-  cmpMeta.slotMeta = cmpRegistryData[5];
+  cmpMeta.slotMeta = cmpRegistryData[4];
 
-  if (cmpRegistryData[6]) {
+  if (cmpRegistryData[5]) {
     // parse listener meta
-    cmpMeta.listenersMeta = cmpRegistryData[6].map(parseListenerData);
+    cmpMeta.listenersMeta = cmpRegistryData[5].map(parseListenerData);
   }
 
   // bundle load priority
-  cmpMeta.loadPriority = cmpRegistryData[7];
+  cmpMeta.loadPriority = cmpRegistryData[6];
 
   return registry[cmpMeta.tagNameMeta] = cmpMeta;
 }

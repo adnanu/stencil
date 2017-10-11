@@ -1,14 +1,12 @@
-import { ComponentMeta, ComponentRegistry, CompiledModeStyles, EventMeta, ListenMeta, LoadComponentRegistry,
-  MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
+import { BundleIds, ComponentMeta, ComponentRegistry, CompiledModeStyles, EventMeta, ListenMeta,
+  LoadComponentRegistry, MemberMeta, MembersMeta, ModuleFile, PropChangeMeta } from './interfaces';
 import { ENCAPSULATION_TYPE, MEMBER_TYPE, PROP_TYPE, SLOT_META } from '../util/constants';
 
 
 export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadComponentRegistry {
-  // ensure we've got a standard order of the components
   const d: any[] = [
     cmpMeta.tagNameMeta,
-    cmpMeta.moduleId,
-    formatStyles(cmpMeta.stylesMeta),
+    formatBundleIds(cmpMeta.bundleIds),
     formatObserveAttributeProps(cmpMeta.membersMeta),
     formatEncapsulation(cmpMeta.encapsulation),
     formatSlot(cmpMeta.slotMeta),
@@ -20,18 +18,31 @@ export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadCompone
 }
 
 
-export function formatStyles(styleMeta: StylesMeta): any {
-  if (!styleMeta) {
-    return 0;
+export function formatBundleIds(bundleIds: BundleIds): any {
+  if (!bundleIds) {
+    return 'invalid-bundle-id';
   }
 
-  const stylesIds: any = {};
+  if (typeof bundleIds === 'string') {
+    return bundleIds;
+  }
 
-  Object.keys(styleMeta).sort().forEach(modeName => {
-    stylesIds[modeName] = styleMeta[modeName].styleId;
+  const modes = Object.keys(bundleIds).sort();
+  if (!modes.length) {
+    return 'invalid-bundle-id';
+  }
+
+  if (modes.length === 1) {
+    return bundleIds[modes[0]];
+  }
+
+  const bundleIdObj: BundleIds = {};
+
+  modes.forEach(modeName => {
+    bundleIdObj[modeName] = bundleIds[modeName];
   });
 
-  return stylesIds;
+  return bundleIdObj;
 }
 
 
@@ -164,12 +175,20 @@ export function formatLoadStyles(namespace: string, bundleStyles: CompiledModeSt
   });
 
   bundleStyles.forEach(bundleStyle => {
-    // arg EVEN
-    args.push(bundleStyle.tag);
+    const styles = (scoped ? bundleStyle.scopedStyles : bundleStyle.unscopedStyles).replace(/\n/g, `\\n`).replace(/\"/g, `\\"`).trim();
 
-    // arg ODD
-    args.push((scoped ? bundleStyle.scopedStyles : bundleStyle.unscopedStyles).replace(/\n/g, `\\n`).replace(/\"/g, `\\"`));
+    if (styles.length > 0) {
+      // arg EVEN
+      args.push(bundleStyle.tag);
+
+      // arg ODD
+      args.push(styles);
+    }
   });
+
+  if (args.length < 2) {
+    return '';
+  }
 
   return `${namespace}.loadStyles("${args.join(`","`)}");`;
 }

@@ -1,15 +1,16 @@
 import { assignHostContentSlots } from '../core/renderer/slot';
 import { BuildConfig, BuildContext, ComponentMeta, ComponentRegistry,
   CoreContext, Diagnostic, FilesMap, HostElement,
-  ModuleCallbacks, PlatformApi, AppGlobal } from '../util/interfaces';
+  BundleCallbacks, PlatformApi, AppGlobal } from '../util/interfaces';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
 import { createRendererPatch } from '../core/renderer/patch';
-import { DEFAULT_STYLE_MODE, MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { getAppFileName } from '../compiler/app/app-core';
-import { getCssFile, getJsFile, normalizePath } from '../compiler/util';
+import { getBundleId } from '../core/instance/connected';
+import { getJsFile, normalizePath } from '../compiler/util';
 import { h, t } from '../core/renderer/h';
+import { MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { noop } from '../util/helpers';
 import { parseComponentMeta } from '../util/data-parse';
 import { proxyController } from '../core/instance/proxy';
@@ -25,9 +26,9 @@ export function createPlatformServer(
 ): PlatformApi {
   const registry: ComponentRegistry = { 'html': {} };
   const moduleImports: {[tag: string]: any} = {};
-  const moduleCallbacks: ModuleCallbacks = {};
-  const loadedModules: {[moduleId: string]: boolean} = {};
-  const pendingModuleFileReads: {[url: string]: boolean} = {};
+  const bundleCallbacks: BundleCallbacks = {};
+  const loadedBundles: {[bundleId: string]: boolean} = {};
+  const pendingBundleFileReads: {[url: string]: boolean} = {};
   const pendingStyleFileReads: {[url: string]: boolean} = {};
   const stylesMap: FilesMap = {};
   const controllerComponents: {[tag: string]: HostElement} = {};
@@ -157,7 +158,7 @@ export function createPlatformServer(
   }
 
 
-  App.loadComponents = function loadComponents(module, importFn) {
+  App.loadComponents = function loadComponents(bundleId, importFn) {
     const args = arguments;
 
     // import component function
@@ -169,22 +170,47 @@ export function createPlatformServer(
     }
 
     // fire off all the callbacks waiting on this bundle to load
-    var callbacks = moduleCallbacks[module];
+    var callbacks = bundleCallbacks[bundleId];
     if (callbacks) {
       for (i = 0; i < callbacks.length; i++) {
         callbacks[i]();
       }
-      delete moduleCallbacks[module];
+      delete bundleCallbacks[bundleId];
     }
 
     // remember that we've already loaded this bundle
-    loadedModules[module] = true;
+    loadedBundles[bundleId] = true;
+  };
+
+
+  App.loadStyles = function loadStyles() {
+    // jsonp callback from requested bundles
+    // ssr directly adds styles to document.head
+    const args = arguments;
+    let sElm: Element;
+    let cmpMeta: ComponentMeta;
+
+    for (var i = 0; i < args.length; i += 2) {
+      cmpMeta = registry[args[i]];
+
+      if (cmpMeta) {
+        // these styles go be applied to the global document
+        sElm = domApi.$createElement('style');
+
+        // add the style text to the style element
+        sElm.innerHTML = args[i + 1];
+
+        // give it an unique id
+        sElm.id = `ssr-style-${args[i]}`;
+
+        // add our new element to the head
+        domApi.$appendChild(domApi.$head, sElm);
+      }
+    }
   };
 
 
   function loadBundle(cmpMeta: ComponentMeta, elm: HostElement, cb: Function): void {
-    loadModuleStyles(cmpMeta, elm);
-
     if (cmpMeta.componentModule) {
       // we already have the module loaded
       // (this is probably a unit test)
@@ -192,34 +218,30 @@ export function createPlatformServer(
       return;
     }
 
-    const moduleId = cmpMeta.moduleId;
+    const bundleId = getBundleId(false, cmpMeta, elm.mode);
 
-    if (loadedModules[moduleId]) {
-      // sweet, we've already loaded this module
+    if (loadedBundles[bundleId]) {
+      // sweet, we've already loaded this bundle
       cb();
 
     } else {
-      // never seen this module before, let's start loading the file
+      // never seen this bundle before, let's start loading the file
       // and add it to the bundle callbacks to fire when it's loaded
-      if (moduleCallbacks[moduleId]) {
-        moduleCallbacks[moduleId].push(cb);
-      } else {
-        moduleCallbacks[moduleId] = [cb];
-      }
+      (bundleCallbacks[bundleId] = bundleCallbacks[bundleId] || []).push(cb);
 
-      // create the module filePath we'll be reading
-      const jsFilePath = normalizePath(config.sys.path.join(appBuildDir, `${moduleId}.js`));
+      // create the bundle filePath we'll be reading
+      const jsFilePath = normalizePath(config.sys.path.join(appBuildDir, `${bundleId}.js`));
 
-      if (!pendingModuleFileReads[jsFilePath]) {
+      if (!pendingBundleFileReads[jsFilePath]) {
         // not already actively reading this file
         // remember that we're now actively requesting this url
-        pendingModuleFileReads[jsFilePath] = true;
+        pendingBundleFileReads[jsFilePath] = true;
 
-        // let's kick off reading the module
+        // let's kick off reading the bundle
         // this could come from the cache or a new readFile
         getJsFile(config.sys, ctx, jsFilePath).then(jsContent => {
           // remove it from the list of file reads we're waiting on
-          delete pendingModuleFileReads[jsFilePath];
+          delete pendingBundleFileReads[jsFilePath];
 
           // run the code in this sandboxed context
           config.sys.vm.runInContext(jsContent, win, { timeout: 10000 });
@@ -228,49 +250,6 @@ export function createPlatformServer(
           const d = onError(RUNTIME_ERROR.LoadBundleError, err, elm);
           appLoaded(d);
         });
-      }
-    }
-  }
-
-
-  function loadModuleStyles(cmpMeta: ComponentMeta, elm: HostElement) {
-    // we need to load this component's css file
-    // we're already figured out and set "mode" as a property to the element
-    let styleId: any = cmpMeta.styleIds && (cmpMeta.styleIds[elm.mode] || cmpMeta.styleIds[DEFAULT_STYLE_MODE]);
-    if (!styleId && cmpMeta.stylesMeta) {
-      const stylesMeta = cmpMeta.stylesMeta[elm.mode] || cmpMeta.stylesMeta[DEFAULT_STYLE_MODE];
-      if (stylesMeta) {
-        styleId = stylesMeta.styleId;
-      }
-    }
-    if (styleId) {
-      // we've got a style id to load up
-      // create the style filePath we'll be reading
-      const styleFilePath = normalizePath(config.sys.path.join(appBuildDir, `${styleId}.css`));
-
-      if (!stylesMap[styleFilePath]) {
-        // this style hasn't been added to our collection yet
-
-        if (!pendingStyleFileReads[styleFilePath]) {
-          // we're not already actively opening this file
-          pendingStyleFileReads[styleFilePath] = true;
-
-          getCssFile(config.sys, ctx, styleFilePath).then(cssContent => {
-            delete pendingStyleFileReads[styleFilePath];
-
-            // finished reading the css file
-            // let's add the content to our collection
-            stylesMap[styleFilePath] = cssContent;
-
-            // check if the entire app is done loading or not
-            // and if this was the last thing the app was waiting on
-            appLoaded();
-
-          }).catch(err => {
-            const d = onError(RUNTIME_ERROR.LoadBundleError, err, elm);
-            appLoaded(d);
-          });
-        }
       }
     }
   }

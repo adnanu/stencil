@@ -65,30 +65,6 @@ export function getJsFile(sys: StencilSystem, ctx: BuildContext, jsFilePath: str
 }
 
 
-export function getCssFile(sys: StencilSystem, ctx: BuildContext, cssFilePath: string) {
-  cssFilePath = normalizePath(cssFilePath);
-
-  if (typeof ctx.filesToWrite[cssFilePath] === 'string') {
-    return Promise.resolve(ctx.filesToWrite[cssFilePath]);
-  }
-
-  if (typeof ctx.cssFiles[cssFilePath] === 'string') {
-    return Promise.resolve(ctx.cssFiles[cssFilePath]);
-  }
-
-  return new Promise<string>((resolve, reject) => {
-    sys.fs.readFile(cssFilePath, 'utf-8', (err, data) => {
-      if (err) {
-        reject(err);
-      } else {
-        ctx.cssFiles[cssFilePath] = data;
-        resolve(data);
-      }
-    });
-  });
-}
-
-
 export function readFile(sys: StencilSystem, filePath: string) {
   return new Promise<string>((resolve, reject) => {
     sys.fs.readFile(filePath, 'utf-8', (err, data) => {

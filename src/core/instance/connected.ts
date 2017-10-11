@@ -1,7 +1,8 @@
+import { ComponentMeta, HostElement, PlatformApi } from '../../util/interfaces';
 import { getParentElement } from '../../util/helpers';
-import { HostElement, PlatformApi } from '../../util/interfaces';
 import { initElementListeners } from './listeners';
 import { PRIORITY } from '../../util/constants';
+import { useScopedCss } from '../renderer/encapsulation';
 
 
 export function connectedCallback(plt: PlatformApi, elm: HostElement) {
@@ -70,4 +71,25 @@ export function registerWithParentComponent(plt: PlatformApi, elm: HostElement) 
       break;
     }
   }
+}
+
+
+export function getBundleId(supportsNativeShadowDom: boolean, cmpMeta: ComponentMeta, mode: string) {
+  // figure out which bundle to request and kick it off
+  // could be an object with the mode as the key
+  // or the bundle id could just be a string itself
+  const bundleId = cmpMeta.bundleIds[mode] || cmpMeta.bundleIds;
+
+  return bundleId + ((useScopedCss(supportsNativeShadowDom, cmpMeta)) ?
+      // use the scoped css version for styling
+      // either this component wants to use scoped css
+      // or it wants shadow css, but browser doesn't support it
+      // bundleid.sc
+      '.sc'
+      :
+      // use the exact css the user wrote
+      // either it's shadow dom css and this browser supports shadow dom
+      // or this component doesn't want to use scoped/shadow css at all
+      // bundleid
+      '');
 }

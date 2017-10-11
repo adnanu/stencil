@@ -23,7 +23,7 @@ export interface CoreContext {
 
 export interface AppGlobal {
   components?: LoadComponentRegistry[];
-  loadComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
+  loadComponents?: (bundleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
   loadStyles?: (styleId: string, styleText: string) => void;
 }
 
@@ -82,41 +82,36 @@ export interface LoadComponentRegistry {
   [0]: string;
 
   /**
-   * module id
+   * map of bundle ids
    */
-  [1]: string;
-
-  /**
-   * map of the mode styles and css bundle ids
-   */
-  [2]: {
+  [1]: {
     [modeName: string]: string
   };
 
   /**
    * members
    */
-  [3]: ComponentMemberData[];
+  [2]: ComponentMemberData[];
 
   /**
    * encapsulated
    */
-  [4]: ENCAPSULATION_TYPE;
+  [3]: ENCAPSULATION_TYPE;
 
   /**
    * slot
    */
-  [5]: SLOT_META;
+  [4]: SLOT_META;
 
   /**
    * listeners
    */
-  [6]: ComponentListenersData[];
+  [5]: ComponentListenersData[];
 
   /**
    * load priority
    */
-  [7]: PRIORITY;
+  [6]: PRIORITY;
 }
 
 
@@ -300,8 +295,7 @@ export interface ManifestBundle {
   components?: string[];
   moduleFiles: ModuleFile[];
   compiledModeStyles?: CompiledModeStyles[];
-  compiledModule?: CompiledModule;
-  compiledStyles?: CompiledStyle[];
+  compiledModuleText?: string;
   priority?: number;
 }
 
@@ -312,18 +306,6 @@ export interface CompiledModeStyles {
   styleOrder?: number;
   unscopedStyles?: string;
   scopedStyles?: string;
-}
-
-
-export interface CompiledModule {
-  moduleId?: string;
-  moduleText?: string;
-}
-
-
-export interface CompiledStyle {
-  styleId?: string;
-  modeName?: string;
 }
 
 
@@ -716,8 +698,7 @@ export interface PropChangeOpts {
 export interface ComponentMeta {
   // "Meta" suffix to ensure property renaming
   tagNameMeta?: string;
-  moduleId?: string;
-  styleIds?: {[modeName: string]: string };
+  bundleIds?: BundleIds;
   stylesMeta?: StylesMeta;
   membersMeta?: MembersMeta;
   eventsMeta?: EventMeta[];
@@ -731,6 +712,11 @@ export interface ComponentMeta {
   loadPriority?: number;
   componentModule?: any;
   componentClass?: string;
+}
+
+
+export interface BundleIds {
+  [modeName: string]: string;
 }
 
 
@@ -993,8 +979,8 @@ export interface IdleOptions {
 }
 
 
-export interface ModuleCallbacks {
-  [moduleId: string]: Function[];
+export interface BundleCallbacks {
+  [bundleId: string]: Function[];
 }
 
 

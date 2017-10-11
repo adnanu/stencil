@@ -375,9 +375,6 @@ export function mockDefine(plt: MockedPlatform, cmpMeta: ComponentMeta) {
   if (!cmpMeta.membersMeta) {
     cmpMeta.membersMeta = {};
   }
-  if (!cmpMeta.styleIds) {
-    cmpMeta.styleIds = {};
-  }
 
   (<PlatformApi>plt).defineComponent(cmpMeta);
 
