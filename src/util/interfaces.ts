@@ -89,29 +89,34 @@ export interface LoadComponentRegistry {
   };
 
   /**
+   * has styles
+   */
+  [2]: boolean;
+
+  /**
    * members
    */
-  [2]: ComponentMemberData[];
+  [3]: ComponentMemberData[];
 
   /**
    * encapsulated
    */
-  [3]: ENCAPSULATION_TYPE;
+  [4]: ENCAPSULATION_TYPE;
 
   /**
    * slot
    */
-  [4]: SLOT_META;
+  [5]: SLOT_META;
 
   /**
    * listeners
    */
-  [5]: ComponentListenersData[];
+  [6]: ComponentListenersData[];
 
   /**
    * load priority
    */
-  [6]: PRIORITY;
+  [7]: PRIORITY;
 }
 
 

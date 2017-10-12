@@ -34,7 +34,7 @@ describe('component-styles', () => {
   describe('groupComponentModeStyles', () => {
 
     it('should concat w/ correct order and group', () => {
-      const tag = 'my-tag';
+      const cmpMeta: ComponentMeta = { tagNameMeta: 'my-tag' };
       const modeName = 'ios';
       const compiledModeStyles: CompiledModeStyles[] = [
         { styleOrder: 99, unscopedStyles: 'h99{}', scopedStyles: 'h99[a]{}' },
@@ -42,7 +42,7 @@ describe('component-styles', () => {
         { styleOrder: 55, unscopedStyles: 'h55{}', scopedStyles: 'h55[a]{}' }
       ];
 
-      const groupedCmpStyleDetail = groupComponentModeStyles(tag, modeName, compiledModeStyles);
+      const groupedCmpStyleDetail = groupComponentModeStyles(cmpMeta.tagNameMeta, modeName, compiledModeStyles);
 
       expect(groupedCmpStyleDetail.unscopedStyles).toBe('h1{}\n\nh55{}\n\nh99{}');
       expect(groupedCmpStyleDetail.scopedStyles).toBe('h1[a]{}\n\nh55[a]{}\n\nh99[a]{}');

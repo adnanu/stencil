@@ -23,7 +23,11 @@ export function generateComponentModeStyles(
   modeName: string
 ) {
   return generateAllComponentModeStyles(config, ctx, moduleFile, modeName).then(allCmpStyleDetails => {
-    return groupComponentModeStyles(moduleFile.cmpMeta.tagNameMeta, modeName, allCmpStyleDetails);
+    const compiledModeStyles = groupComponentModeStyles(moduleFile.cmpMeta.tagNameMeta, modeName, allCmpStyleDetails);
+
+    setHydratedCss(config, moduleFile.cmpMeta, compiledModeStyles);
+
+    return compiledModeStyles;
   });
 }
 
@@ -93,6 +97,39 @@ export function groupComponentModeStyles(tag: string, modeName: string, allCmpSt
   compiledModeStyles.scopedStyles = allCmpStyleDetails.map(s => s.scopedStyles || '').join('\n\n').trim();
 
   return compiledModeStyles;
+}
+
+
+function setHydratedCss(config: BuildConfig, cmpMeta: ComponentMeta, compiledModeStyles: CompiledModeStyles) {
+  const tagSelector = `${cmpMeta.tagNameMeta}.${config.hydratedCssClass}`;
+
+  if (cmpMeta.encapsulation === ENCAPSULATION_TYPE.ShadowDom) {
+    const hostSelector = `:host(.${config.hydratedCssClass})`;
+
+    compiledModeStyles.unscopedStyles = appendHydratedCss(
+      compiledModeStyles.unscopedStyles,
+      hostSelector,
+      true
+    );
+
+  } else {
+    compiledModeStyles.unscopedStyles = appendHydratedCss(
+      compiledModeStyles.unscopedStyles,
+      tagSelector
+    );
+  }
+
+  if (cmpMeta.encapsulation === ENCAPSULATION_TYPE.ShadowDom || cmpMeta.encapsulation === ENCAPSULATION_TYPE.ScopedCss) {
+    compiledModeStyles.scopedStyles = appendHydratedCss(
+      compiledModeStyles.scopedStyles,
+      tagSelector
+    );
+  }
+}
+
+
+function appendHydratedCss(styles: string, selector: string, important?: boolean) {
+  return `${styles}\n${selector}{visibility:inherit${important ? ' !important' : ''}}`;
 }
 
 

@@ -341,6 +341,24 @@ describe('data serialize/parse', () => {
       expect(cmpMeta.membersMeta.mode.memberType).toBe(MEMBER_TYPE.Prop);
     });
 
+    it('should set has styles', () => {
+      cmpMeta.stylesMeta = {
+        ios: {}
+      };
+
+      const format = formatLoadComponentRegistry(cmpMeta);
+
+      expect(format[2]).toBeTruthy();
+    });
+
+    it('should set does not have styles', () => {
+      cmpMeta.stylesMeta = null;
+
+      const format = formatLoadComponentRegistry(cmpMeta);
+
+      expect(format[2]).toBeFalsy();
+    });
+
     it('should set all of the bundle ids as an object', () => {
       cmpMeta.bundleIds = {
         ios: 'abc',

@@ -1,5 +1,5 @@
 import { BundleIds, ComponentMeta, ComponentRegistry, CompiledModeStyles, EventMeta, ListenMeta,
-  LoadComponentRegistry, MemberMeta, MembersMeta, ModuleFile, PropChangeMeta } from './interfaces';
+  LoadComponentRegistry, MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
 import { ENCAPSULATION_TYPE, MEMBER_TYPE, PROP_TYPE, SLOT_META } from '../util/constants';
 
 
@@ -7,6 +7,7 @@ export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadCompone
   const d: any[] = [
     cmpMeta.tagNameMeta,
     formatBundleIds(cmpMeta.bundleIds),
+    formatHasStyles(cmpMeta.stylesMeta),
     formatObserveAttributeProps(cmpMeta.membersMeta),
     formatEncapsulation(cmpMeta.encapsulation),
     formatSlot(cmpMeta.slotMeta),
@@ -43,6 +44,14 @@ export function formatBundleIds(bundleIds: BundleIds): any {
   });
 
   return bundleIdObj;
+}
+
+
+export function formatHasStyles(stylesMeta: StylesMeta) {
+  if (stylesMeta && Object.keys(stylesMeta).length > 0) {
+    return 1;
+  }
+  return 0;
 }
 
 
