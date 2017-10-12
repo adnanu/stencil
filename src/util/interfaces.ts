@@ -1,6 +1,6 @@
 import { CssClassMap } from './jsx-interfaces';
 export { CssClassMap } from './jsx-interfaces';
-import { ENCAPSULATION_TYPE, MEMBER_TYPE, PROP_TYPE, PRIORITY, SLOT_META } from './constants';
+import { ENCAPSULATION_TYPE, MEMBER_TYPE, PROP_TYPE, PRIORITY, RUNTIME_ERROR, SLOT_META } from './constants';
 
 
 export interface CoreContext {
@@ -938,7 +938,7 @@ export interface PlatformApi {
   getEventOptions: (useCapture?: boolean, usePassive?: boolean) => any;
   emitEvent: (elm: Element, eventName: string, data: EventEmitterData) => void;
   tmpDisconnected?: boolean;
-  onError: (type: number, err: any, elm: HostElement) => void;
+  onError: (err: Error, type?: RUNTIME_ERROR, elm?: HostElement, appFailure?: boolean) => void;
   isClient?: boolean;
   attachStyles?: (cmpMeta: ComponentMeta, elm: HostElement) => void;
 }

@@ -6,7 +6,7 @@ import { createDomControllerClient } from './dom-controller-client';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createRendererPatch } from '../core/renderer/patch';
 import { createQueueClient } from './queue-client';
-import { ENCAPSULATION_TYPE, SSR_VNODE_ID } from '../util/constants';
+import { ENCAPSULATION_TYPE, RUNTIME_ERROR, SSR_VNODE_ID } from '../util/constants';
 import { h, t } from '../core/renderer/h';
 import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
@@ -349,8 +349,8 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
       } : !!useCapture;
   }
 
-  function onError(type: number, err: any, elm: HostElement) {
-    console.error(type, err, elm.tagName);
+  function onError(err: Error, type: RUNTIME_ERROR, elm: HostElement) {
+    console.error(err, type, elm && elm.tagName);
   }
 
   function propConnect(ctrlTag: string) {

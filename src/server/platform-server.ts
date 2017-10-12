@@ -6,7 +6,7 @@ import { createDomApi } from '../core/renderer/dom-api';
 import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
 import { createRendererPatch } from '../core/renderer/patch';
-import { ENCAPSULATION_TYPE, MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
+import { ENCAPSULATION_TYPE, DEFAULT_STYLE_MODE, MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
 import { getAppFileName } from '../compiler/app/app-core';
 import { getJsFile, normalizePath } from '../compiler/util';
 import { h, t } from '../core/renderer/h';
@@ -28,7 +28,6 @@ export function createPlatformServer(
   const bundleCallbacks: BundleCallbacks = {};
   const loadedBundles: {[bundleId: string]: boolean} = {};
   const pendingBundleFileReads: {[url: string]: boolean} = {};
-  const pendingStyleFileReads: {[url: string]: boolean} = {};
   const stylesMap: FilesMap = {};
   const controllerComponents: {[tag: string]: HostElement} = {};
 
@@ -105,7 +104,7 @@ export function createPlatformServer(
   };
 
   function appLoaded(failureDiagnostic?: Diagnostic) {
-    if ((rootElm._hasLoaded && Object.keys(pendingStyleFileReads).length === 0) || failureDiagnostic) {
+    if (rootElm._hasLoaded || failureDiagnostic) {
       // the root node has loaded
       // and there are no css files still loading
       plt.onAppLoad && plt.onAppLoad(rootElm, stylesMap, failureDiagnostic);
@@ -184,27 +183,9 @@ export function createPlatformServer(
 
   App.loadStyles = function loadStyles() {
     // jsonp callback from requested bundles
-    // ssr directly adds styles to document.head
     const args = arguments;
-    let sElm: Element;
-    let cmpMeta: ComponentMeta;
-
     for (var i = 0; i < args.length; i += 2) {
-      cmpMeta = registry[args[i]];
-
-      if (cmpMeta) {
-        // these styles go be applied to the global document
-        sElm = domApi.$createElement('style');
-
-        // add the style text to the style element
-        sElm.innerHTML = args[i + 1];
-
-        // give it an unique id
-        sElm.id = `ssr-style-${args[i]}`;
-
-        // add our new element to the head
-        domApi.$appendChild(domApi.$head, sElm);
-      }
+      stylesMap[args[i]] = args[i + 1];
     }
   };
 
@@ -217,7 +198,7 @@ export function createPlatformServer(
       return;
     }
 
-    const bundleId: string = cmpMeta.bundleIds[elm.mode] || (cmpMeta.bundleIds as any);
+    const bundleId: string = cmpMeta.bundleIds[elm.mode] || cmpMeta.bundleIds[DEFAULT_STYLE_MODE] || (cmpMeta.bundleIds as any);
 
     if (loadedBundles[bundleId]) {
       // sweet, we've already loaded this bundle
@@ -252,8 +233,7 @@ export function createPlatformServer(
           config.sys.vm.runInContext(jsContent, win, { timeout: 10000 });
 
         }).catch(err => {
-          const d = onError(RUNTIME_ERROR.LoadBundleError, err, elm);
-          appLoaded(d);
+          onError(err, RUNTIME_ERROR.LoadBundleError, elm, true);
         });
       }
     }
@@ -274,7 +254,7 @@ export function createPlatformServer(
     config.sys.vm.runInContext(ctx.appFiles.global, win);
   }
 
-  function onError(type: RUNTIME_ERROR, err: Error, elm: HostElement) {
+  function onError(err: Error, type: RUNTIME_ERROR, elm: HostElement, appFailure: boolean) {
     const d: Diagnostic = {
       type: 'runtime',
       header: 'Runtime error detected',
@@ -312,7 +292,9 @@ export function createPlatformServer(
 
     diagnostics.push(d);
 
-    return d;
+    if (appFailure) {
+      appLoaded(d);
+    }
   }
 
   function propConnect(ctrlTag: string) {

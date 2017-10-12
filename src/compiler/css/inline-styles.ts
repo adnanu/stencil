@@ -22,7 +22,7 @@ export function inlineStyles(config: BuildConfig, doc: Document, stylesMap: File
       const cssFilePaths = Object.keys(stylesMap);
 
       styles = cssFilePaths.map(cssFilePath => {
-        return removeUnusedStyles(config, usedSelectors, stylesMap[cssFilePath], cssFilePath, diagnostics);
+        return removeUnusedStyles(config, usedSelectors, stylesMap[cssFilePath], null, diagnostics);
       });
 
     } catch (e) {
