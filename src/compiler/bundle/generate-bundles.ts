@@ -77,13 +77,7 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
 
   const unscopedFileName = getBundleFileName(bundleId, false);
 
-  manifestBundle.moduleFiles.forEach(moduleFile => {
-    if (modeName) {
-      moduleFile.cmpMeta.bundleIds[modeName] = bundleId;
-    } else {
-      moduleFile.cmpMeta.bundleIds[DEFAULT_STYLE_MODE] = bundleId;
-    }
-  });
+  setBundleModeIds(manifestBundle.moduleFiles, modeName, bundleId);
 
   const unscopedWwwBuildPath = normalizePath(config.sys.path.join(
     config.buildDir,
@@ -94,23 +88,24 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
   // use wwwFilePath as the cache key
   if (ctx.compiledFileCache[unscopedWwwBuildPath] === unscopedContent) {
     // unchanged, no need to resave
-    return false;
+    return;
   }
 
   // cache for later
   ctx.compiledFileCache[unscopedWwwBuildPath] = unscopedContent;
 
   if (config.generateWWW) {
+    // write the unscoped css to the www build
     ctx.filesToWrite[unscopedWwwBuildPath] = unscopedContent;
   }
 
   if (config.generateDistribution) {
+    // write the unscoped css to the dist build
     const unscopedDistPath = normalizePath(config.sys.path.join(
       config.distDir,
       getAppFileName(config),
       unscopedFileName
     ));
-
     ctx.filesToWrite[unscopedDistPath] = unscopedContent;
   }
 
@@ -131,27 +126,36 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
     const scopedFileName = getBundleFileName(bundleId, true);
 
     if (config.generateWWW) {
+      // write the scoped css to the www build
       const scopedWwwPath = normalizePath(config.sys.path.join(
         config.buildDir,
         getAppFileName(config),
         scopedFileName
       ));
-
       ctx.filesToWrite[scopedWwwPath] = scopedFileContent;
     }
 
     if (config.generateDistribution) {
+      // write the scoped css to the dist build
       const scopedDistPath = normalizePath(config.sys.path.join(
         config.distDir,
         getAppFileName(config),
         scopedFileName
       ));
-
       ctx.filesToWrite[scopedDistPath] = scopedFileContent;
     }
   }
+}
 
-  return true;
+
+export function setBundleModeIds(moduleFiles: ModuleFile[], modeName: string, bundleId: string) {
+  moduleFiles.forEach(moduleFile => {
+    if (modeName) {
+      moduleFile.cmpMeta.bundleIds[modeName] = bundleId;
+    } else {
+      moduleFile.cmpMeta.bundleIds[DEFAULT_STYLE_MODE] = bundleId;
+    }
+  });
 }
 
 
@@ -178,16 +182,8 @@ export function generateComponentRegistry(manifestBundles: ManifestBundle[]) {
 }
 
 
-export function getBundleFileName(moduleId: string, scoped: boolean) {
-  const fileName: string[] = [moduleId];
-
-  if (scoped) {
-    fileName.push('sc');
-  }
-
-  fileName.push('js');
-
-  return fileName.join('.');
+export function getBundleFileName(bundleId: string, scoped: boolean) {
+  return `${bundleId}${scoped ? '.sc' : ''}.js`;
 }
 
 

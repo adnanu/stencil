@@ -1,4 +1,4 @@
-import { BuildConfig, BuildContext, Bundle, ComponentMeta, ModuleFile } from '../../../util/interfaces';
+import { BuildConfig, BuildContext, Bundle, ComponentMeta, ManifestBundle, ModuleFile } from '../../../util/interfaces';
 import {
   bundleRequiresScopedStyles,
   containsDefaultMode,
@@ -6,9 +6,10 @@ import {
   getBundleId,
   getBundleFileName,
   getManifestBundleModes,
+  setBundleModeIds,
   writeBundleFile
 } from '../generate-bundles';
-import { ENCAPSULATION_TYPE } from '../../../util/constants';
+import { DEFAULT_STYLE_MODE, ENCAPSULATION_TYPE } from '../../../util/constants';
 import { mockStencilSystem } from '../../../testing/mocks';
 
 
@@ -40,55 +41,36 @@ describe('generate-bundles', () => {
 
   });
 
-  // describe('writeBundleFile', () => {
+  describe('setBundleModeIds', () => {
 
-  //   it('should write www/build and dist', () => {
-  //     const config: BuildConfig = {
-  //       generateWWW: true,
-  //       generateDistribution: true,
-  //       namespace: 'App',
-  //       buildDir: 'build',
-  //       distDir: 'dist'
-  //     };
-  //     config.sys = mockStencilSystem();
-  //     const ctx: BuildContext = {
-  //       compiledFileCache: {},
-  //       filesToWrite: {}
-  //     };
-  //     writeBundleFile(config, ctx, 'module-id', [''], false);
-  //     expect(ctx.filesToWrite['build/app/module-id.js']).toBeDefined();
-  //     expect(ctx.filesToWrite['dist/app/module-id.js']).toBeDefined();
-  //   });
+    it('should set default style mode with null mode name', () => {
+      const moduleFiles: ModuleFile[] = [
+        { cmpMeta: { bundleIds: {} } }
+      ];
+      setBundleModeIds(moduleFiles, null, 'bundle-id');
+      expect(moduleFiles[0].cmpMeta.bundleIds[DEFAULT_STYLE_MODE]).toBe('bundle-id');
+    });
 
-  //   it('should not write if content is the same', () => {
-  //     const config: BuildConfig = { namespace: 'App', buildDir: 'build' };
-  //     config.sys = mockStencilSystem();
-  //     const ctx: BuildContext = { compiledFileCache: {} };
-  //     writeBundleFile(config, ctx, 'module-id', [''], false);
-  //     const didWrite = writeBundleFile(config, ctx, 'module-id', [''], false);
-  //     expect(didWrite).toBe(false);
-  //   });
+    it('should set mode with mode name', () => {
+      const moduleFiles: ModuleFile[] = [
+        { cmpMeta: { bundleIds: {} } }
+      ];
+      setBundleModeIds(moduleFiles, 'ios', 'bundle-id');
+      expect(moduleFiles[0].cmpMeta.bundleIds.ios).toBe('bundle-id');
+    });
 
-  //   it('should write if new content', () => {
-  //     const config: BuildConfig = { namespace: 'App', buildDir: 'build' };
-  //     config.sys = mockStencilSystem();
-  //     const ctx: BuildContext = { compiledFileCache: {} };
-  //     const didWrite = writeBundleFile(config, ctx, 'module-id', [''], false);
-  //     expect(didWrite).toBe(true);
-  //   });
-
-  // });
+  });
 
   describe('getBundleFileName', () => {
 
-    it('get filename from module id and scoped', () => {
-      const fileName = getBundleFileName('module-id', true);
-      expect(fileName).toBe('module-id.sc.js');
+    it('get filename from bundle id and scoped', () => {
+      const fileName = getBundleFileName('bundle-id', true);
+      expect(fileName).toBe('bundle-id.sc.js');
     });
 
-    it('get filename from module id only', () => {
-      const fileName = getBundleFileName('module-id', false);
-      expect(fileName).toBe('module-id.js');
+    it('get filename from bundle id only', () => {
+      const fileName = getBundleFileName('bundle-id', false);
+      expect(fileName).toBe('bundle-id.js');
     });
 
   });
