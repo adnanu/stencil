@@ -81,6 +81,7 @@ export function createPlatformServer(
     getContextItem,
     loadBundle,
     connectHostElement,
+    attachStyles: noop,
     queue: createQueueServer(),
     tmpDisconnected: false,
     emitEvent: noop,

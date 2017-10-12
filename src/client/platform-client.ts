@@ -213,7 +213,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
       styleTemplates[args[i]] = templateElm = domApi.$createElement('template');
 
       // add the style text to the template element
-      templateElm.innerHTML = args[i + 1];
+      templateElm.innerHTML = `<style>${args[i + 1]}</style>`;
 
       // give it an unique id
       templateElm.id = `tmp-${args[i]}`;

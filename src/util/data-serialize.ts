@@ -182,7 +182,7 @@ export function formatLoadStyles(namespace: string, bundleStyles: CompiledModeSt
       args.push(bundleStyle.tag);
 
       // arg ODD
-      args.push(`<style id='style-${bundleStyle.tag}'${ scoped ? ' data-scoped' : ''}>${styles}</style>`);
+      args.push(styles);
     }
   });
 
