@@ -1,9 +1,8 @@
 import { BuildConfig, BuildContext, Bundle, Diagnostic, ManifestBundle, ModuleFile } from '../../util/interfaces';
+import { buildError, catchError, hasError } from '../util';
 import { bundleModules } from './bundle-modules';
 import { bundleStyles } from './bundle-styles';
-import { buildError, catchError, hasError } from '../util';
 import { generateBundles } from './generate-bundles';
-import { generateComponentRegistry } from './bundle-registry';
 
 
 export function bundle(config: BuildConfig, ctx: BuildContext) {
@@ -12,8 +11,6 @@ export function bundle(config: BuildConfig, ctx: BuildContext) {
   }
 
   const logger = config.logger;
-
-  logger.debug(`bundle, srcDir: ${config.srcDir}`);
 
   if (config.generateWWW) {
     logger.debug(`bundle, buildDir: ${config.buildDir}`);
@@ -25,21 +22,15 @@ export function bundle(config: BuildConfig, ctx: BuildContext) {
 
   const manifestBundles = getManifestBundles(ctx.manifest.modulesFiles, ctx.manifest.bundles, ctx.diagnostics);
 
-  return Promise.resolve().then(() => {
-    // kick off style and module bundling at the same time
-    return Promise.all([
-      bundleStyles(config, ctx, manifestBundles),
-      bundleModules(config, ctx, manifestBundles)
-    ]);
+  // kick off style and module bundling at the same time
+  return Promise.all([
+    bundleStyles(config, ctx, manifestBundles),
+    bundleModules(config, ctx, manifestBundles)
 
-  }).then(() => {
+  ]).then(() => {
     // both styles and modules are done bundling
-
     // generate the actual files to write
     generateBundles(config, ctx, manifestBundles);
-
-    // create a registry of all the bundles/components
-    ctx.registry = generateComponentRegistry(manifestBundles);
 
   }).catch(err => {
     catchError(ctx.diagnostics, err);
