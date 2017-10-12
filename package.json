@@ -27,7 +27,7 @@
   "dependencies": {
     "chokidar": "1.7.0",
     "node-sass": "4.5.3",
-    "typescript": "^2.6.0-dev.20171011"
+    "typescript": "^2.6.0-rc"
   },
   "devDependencies": {
     "@types/babel-core": "^6.7.14",
