@@ -141,8 +141,16 @@ export function mockStencilSystem() {
       render: function(config: any, cb: Function) {
         Promise.resolve().then(() => {
           config;
+
+          let content: string;
+          if (sys.fs) {
+            content = sys.fs.readFileSync(config.file, 'utf-8');
+          } else {
+            content = `/** ${config.file} mock css **/`;
+          }
+
           cb(null, {
-            css: `/** ${config.file} mock css **/`,
+            css: content,
             stats: []
           });
         });

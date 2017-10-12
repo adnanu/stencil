@@ -6,7 +6,7 @@ import { validateBuildConfig } from '../../../util/validate-config';
 import * as path from 'path';
 
 
-describe('build', () => {
+describe('rebuild', () => {
 
   it('should save app files, but not resave when unchanged', () => {
     ctx = {};
@@ -87,7 +87,7 @@ describe('build', () => {
           { components: ['cmp-b'] }
         ];
 
-        writeFileSync('/src/cmp-a.tsx', `@Component({ tag: 'cmp-a' }) export class CmpA {}`);
+        writeFileSync('/src/cmp-a.tsx', `@Component({ tag: 'cmp-a' }) export class CmpA { constructor() { window.alert(88); } }`);
         writeFileSync('/src/cmp-b.tsx', `@Component({ tag: 'cmp-b' }) export class CmpB {}`);
         ctx.watcher.$triggerEvent('change', '/src/cmp-a.tsx');
         ctx.watcher.$triggerEvent('add', '/src/cmp-b.tsx');
@@ -127,7 +127,7 @@ describe('build', () => {
         expect(ctx.transpileBuildCount).toBe(1);
         expect(ctx.moduleBundleCount).toBe(1);
 
-        expect(wroteFile(r, 'cmp-a.js')).toBe(true);
+        expect(wroteFile(r, 'cmp-a.js')).toBe(false);
         expect(wroteFile(r, 'cmp-b.js')).toBe(false);
       });
     });
@@ -156,7 +156,7 @@ describe('build', () => {
         expect(ctx.transpileBuildCount).toBe(2);
         expect(ctx.moduleBundleCount).toBe(2);
 
-        expect(wroteFile(r, 'cmp-a.js')).toBe(true);
+        expect(wroteFile(r, 'cmp-a.js')).toBe(false);
         expect(wroteFile(r, 'cmp-b.js')).toBe(true);
       });
     });
@@ -169,9 +169,9 @@ describe('build', () => {
       { components: ['cmp-b'] }
     ];
     config.watch = true;
-    writeFileSync('/src/cmp-a.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-a', styleUrl: 'cmp-a.scss' }) export class CmpA {}`);
+    writeFileSync('/src/cmp-a.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-a', styleUrl: 'cmp-a.scss' }) export class CmpA { constructor() { var s = new MyService(); } }`);
     writeFileSync('/src/cmp-a.scss', `body { color: red; }`);
-    writeFileSync('/src/cmp-b.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-b', styleUrl: 'cmp-b.scss' }) export class CmpB {}`);
+    writeFileSync('/src/cmp-b.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-b', styleUrl: 'cmp-b.scss' }) export class CmpB { constructor() { var s = new MyService(); } }`);
     writeFileSync('/src/cmp-b.scss', `body { color: red; }`);
     writeFileSync('/src/service.tsx', `export class MyService {}`);
 
@@ -184,11 +184,10 @@ describe('build', () => {
 
       expect(wroteFile(r, 'cmp-a.js')).toBe(true);
       expect(wroteFile(r, 'cmp-b.js')).toBe(true);
-      expect(wroteFile(r, 'cmp-a.css')).toBe(true);
-      expect(wroteFile(r, 'cmp-b.css')).toBe(true);
 
       return new Promise(resolve => {
         ctx.onFinish = resolve;
+        writeFileSync('/src/service.tsx', `export class MyService { constructor(){ window.alert(88); } }`);
         ctx.watcher.$triggerEvent('change', '/src/service.tsx');
 
       }).then((r: BuildResults) => {
@@ -200,8 +199,6 @@ describe('build', () => {
 
         expect(wroteFile(r, 'cmp-a.js')).toBe(true);
         expect(wroteFile(r, 'cmp-b.js')).toBe(true);
-        expect(wroteFile(r, 'cmp-a.css')).toBe(false);
-        expect(wroteFile(r, 'cmp-b.css')).toBe(false);
       });
     });
   });
@@ -213,8 +210,8 @@ describe('build', () => {
       { components: ['cmp-b'] }
     ];
     config.watch = true;
-    writeFileSync('/src/cmp-a.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-a' }) export class CmpA {}`);
-    writeFileSync('/src/cmp-b.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-b' }) export class CmpB {}`);
+    writeFileSync('/src/cmp-a.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-a' }) export class CmpA { constructor() { var s = new MyService(); } }`);
+    writeFileSync('/src/cmp-b.tsx', `import { MyService } from './service'; @Component({ tag: 'cmp-b' }) export class CmpB { constructor() { var s = new MyService(); } }`);
     writeFileSync('/src/service.tsx', `export class MyService {}`);
 
     return build(config, ctx).then(r => {
@@ -227,7 +224,7 @@ describe('build', () => {
 
       return new Promise(resolve => {
         ctx.onFinish = resolve;
-        writeFileSync('/src/service.tsx', `export class MyService { constructor(){} }`);
+        writeFileSync('/src/service.tsx', `export class MyService { constructor(){ window.alert(88); } }`);
         ctx.watcher.$triggerEvent('change', '/src/service.tsx');
 
       }).then((r: BuildResults) => {
@@ -312,12 +309,6 @@ describe('build', () => {
         expect(ctx.moduleBundleCount).toBe(0);
         expect(ctx.sassBuildCount).toBe(2);
         expect(ctx.styleBundleCount).toBe(2);
-
-        expect(wroteFile(r, 'cmp-a.js')).toBe(false);
-        expect(wroteFile(r, 'cmp-a.css')).toBe(true);
-
-        expect(wroteFile(r, 'cmp-b.js')).toBe(false);
-        expect(wroteFile(r, 'cmp-b.css')).toBe(true);
       });
     });
   });
@@ -342,9 +333,7 @@ describe('build', () => {
       expect(ctx.styleBundleCount).toBe(2);
 
       expect(wroteFile(r, 'cmp-a.js')).toBe(true);
-      expect(wroteFile(r, 'cmp-a.css')).toBe(true);
       expect(wroteFile(r, 'cmp-b.js')).toBe(true);
-      expect(wroteFile(r, 'cmp-b.css')).toBe(true);
 
       return new Promise(resolve => {
         ctx.onFinish = resolve;
@@ -359,10 +348,7 @@ describe('build', () => {
         expect(ctx.styleBundleCount).toBe(1);
 
         expect(wroteFile(r, 'cmp-a.js')).toBe(true);
-        expect(wroteFile(r, 'cmp-a.css')).toBe(true);
-
         expect(wroteFile(r, 'cmp-b.js')).toBe(false);
-        expect(wroteFile(r, 'cmp-b.css')).toBe(false);
       });
     });
   });
@@ -380,7 +366,6 @@ describe('build', () => {
       expect(ctx.moduleBundleCount).toBe(1);
 
       expect(wroteFile(r, 'cmp-a.js')).toBe(true);
-      expect(wroteFile(r, 'cmp-a.css')).toBe(true);
 
       return new Promise(resolve => {
         ctx.onFinish = resolve;
@@ -392,7 +377,6 @@ describe('build', () => {
         expect(ctx.transpileBuildCount).toBe(1);
         expect(ctx.moduleBundleCount).toBe(1);
         expect(wroteFile(r, 'cmp-a.js')).toBe(true);
-        expect(wroteFile(r, 'cmp-a.css')).toBe(true);
       });
     });
   });
@@ -408,6 +392,7 @@ describe('build', () => {
 
       return new Promise(resolve => {
         ctx.onFinish = resolve;
+        writeFileSync('/src/cmp-a.scss', `body { color: blue; }`);
         ctx.watcher.$triggerEvent('change', '/src/cmp-a.scss');
 
       }).then((r: BuildResults) => {
@@ -416,89 +401,35 @@ describe('build', () => {
         expect(ctx.sassBuildCount).toBe(1);
         expect(ctx.styleBundleCount).toBe(1);
 
-        expect(wroteFile(r, 'cmp-a.js')).toBe(false);
-        expect(wroteFile(r, 'cmp-a.css')).toBe(true);
+        expect(r.files.length).toBe(1);
+        expect(wroteFile(r, 'cmp-a.js')).toBe(true);
       });
     });
   });
 
-  it('should build one component w/ styleUrl', () => {
+  it('should not resave unchanged content', () => {
     ctx = {};
     config.bundles = [ { components: ['cmp-a'] } ];
+    config.watch = true;
     writeFileSync('/src/cmp-a.tsx', `@Component({ tag: 'cmp-a', styleUrl: 'cmp-a.scss' }) export class CmpA {}`);
     writeFileSync('/src/cmp-a.scss', `body { color: red; }`);
 
-    return build(config, ctx).then(r => {
-      expect(r.diagnostics.length).toBe(0);
-      expect(r.manifest.components.length).toBe(1);
-      expect(ctx.transpileBuildCount).toBe(1);
-      expect(ctx.sassBuildCount).toBe(1);
-      expect(ctx.moduleBundleCount).toBe(1);
-      expect(ctx.styleBundleCount).toBe(1);
+    return build(config, ctx).then(() => {
 
-      expect(wroteFile(r, 'cmp-a.js')).toBe(true);
-      expect(wroteFile(r, 'cmp-a.css')).toBe(true);
+      return new Promise(resolve => {
+        ctx.onFinish = resolve;
+        ctx.watcher.$triggerEvent('change', '/src/cmp-a.tsx');
+        ctx.watcher.$triggerEvent('change', '/src/cmp-a.scss');
 
-      const cmpMeta = r.manifest.components.find(c => c.tag === 'cmp-a');
-      expect(cmpMeta.styles.$.stylePaths[0]).toEqual('cmp-a.scss');
+      }).then((r: BuildResults) => {
+        expect(ctx.transpileBuildCount).toBe(1);
+        expect(ctx.moduleBundleCount).toBe(1);
+        expect(ctx.sassBuildCount).toBe(1);
+        expect(ctx.styleBundleCount).toBe(1);
+
+        expect(r.files.length).toBe(0);
+      });
     });
-  });
-
-  it('should build one component w/ no styles', () => {
-    ctx = {};
-    config.bundles = [ { components: ['cmp-a'] } ];
-    writeFileSync('/src/cmp-a.tsx', `@Component({ tag: 'cmp-a' }) export class CmpA {}`);
-
-    return build(config, ctx).then(r => {
-      expect(r.diagnostics.length).toBe(0);
-      expect(r.manifest.components.length).toBe(1);
-      expect(ctx.transpileBuildCount).toBe(1);
-      expect(ctx.sassBuildCount).toBe(0);
-      expect(ctx.moduleBundleCount).toBe(1);
-      expect(ctx.styleBundleCount).toBe(0);
-
-      const cmpMeta = r.manifest.components.find(c => c.tag === 'cmp-a');
-      expect(cmpMeta).toBeDefined();
-    });
-  });
-
-  it('should build no components', () => {
-    ctx = {};
-    return build(config, ctx).then(r => {
-      expect(r.diagnostics.length).toBe(0);
-      expect(r.manifest.components.length).toBe(0);
-      expect(ctx.transpileBuildCount).toBe(0);
-      expect(ctx.sassBuildCount).toBe(0);
-      expect(ctx.moduleBundleCount).toBe(0);
-      expect(ctx.styleBundleCount).toBe(0);
-    });
-  });
-
-  it('should ignore common web files not used in builds', () => {
-    validateBuildConfig(config);
-    const reg = config.watchIgnoredRegex;
-
-    expect(reg.test('/asdf/.gitignore')).toBe(true);
-    expect(reg.test('/.gitignore')).toBe(true);
-    expect(reg.test('.gitignore')).toBe(true);
-    expect(reg.test('/image.jpg')).toBe(true);
-    expect(reg.test('image.jpg')).toBe(true);
-    expect(reg.test('/asdf/image.jpg')).toBe(true);
-    expect(reg.test('/asdf/image.jpeg')).toBe(true);
-    expect(reg.test('/asdf/image.png')).toBe(true);
-    expect(reg.test('/asdf/image.gif')).toBe(true);
-    expect(reg.test('/asdf/image.woff')).toBe(true);
-    expect(reg.test('/asdf/image.woff2')).toBe(true);
-    expect(reg.test('/asdf/image.ttf')).toBe(true);
-    expect(reg.test('/asdf/image.eot')).toBe(true);
-
-    expect(reg.test('/asdf/image.ts')).toBe(false);
-    expect(reg.test('/asdf/image.tsx')).toBe(false);
-    expect(reg.test('/asdf/image.css')).toBe(false);
-    expect(reg.test('/asdf/image.scss')).toBe(false);
-    expect(reg.test('/asdf/image.sass')).toBe(false);
-    expect(reg.test('/asdf/image.html')).toBe(false);
-    expect(reg.test('/asdf/image.htm')).toBe(false);
   });
 
 

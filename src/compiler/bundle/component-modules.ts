@@ -65,6 +65,9 @@ function bundleComponents(config: BuildConfig, ctx: BuildContext, manifestBundle
 
       // cache for later
       ctx.moduleBundleOutputs[bundleCacheKey] = manifestBundle.compiledModuleText;
+
+      // keep track of module bundling for testing
+      ctx.moduleBundleCount++;
     });
   });
 }

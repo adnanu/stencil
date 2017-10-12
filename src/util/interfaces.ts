@@ -311,6 +311,7 @@ export interface CompiledModeStyles {
   styleOrder?: number;
   unscopedStyles?: string;
   scopedStyles?: string;
+  writeFile?: boolean;
 }
 
 
@@ -463,9 +464,9 @@ export interface BuildContext {
   cssFiles?: FilesMap;
   compiledFileCache?: ModuleBundles;
   moduleBundleOutputs?: ModuleBundles;
-  styleSassOutputs?: ModuleBundles;
+  styleSassUnscopedOutputs?: ModuleBundles;
   styleSassScopedOutputs?: ModuleBundles;
-  styleCssOutputs?: ModuleBundles;
+  styleCssUnscopedOutputs?: ModuleBundles;
   styleCssScopedOutputs?: ModuleBundles;
   filesToWrite?: FilesMap;
   dependentManifests?: {[collectionName: string]: Manifest};

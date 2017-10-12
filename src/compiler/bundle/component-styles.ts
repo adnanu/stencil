@@ -12,7 +12,12 @@ export function generateComponentStyles(config: BuildConfig, ctx: BuildContext, 
     return generateComponentModeStyles(config, ctx, moduleFile, modeName);
   });
 
-  return Promise.all(promises);
+  return Promise.all(promises).then(componentModeStyles => {
+    if (componentModeStyles.some(c => c.writeFile)) {
+      ctx.styleBundleCount++;
+    }
+    return componentModeStyles;
+  });
 }
 
 
@@ -76,7 +81,8 @@ function generateAllComponentModeStyles(config: BuildConfig, ctx: BuildContext, 
 export function groupComponentModeStyles(tag: string, modeName: string, allCmpStyleDetails: CompiledModeStyles[]) {
   const compiledModeStyles: CompiledModeStyles = {
     tag: tag,
-    modeName: modeName
+    modeName: modeName,
+    writeFile: allCmpStyleDetails.some(c => c.writeFile)
   };
 
   if (allCmpStyleDetails.length === 0) {
@@ -135,7 +141,8 @@ function appendHydratedCss(styles: string, selector: string, important?: boolean
 
 function compileSassFile(config: BuildConfig, ctx: BuildContext, moduleFile: ModuleFile, absStylePath: string, styleOrder: number): Promise<CompiledModeStyles> {
   const compileSassDetails: CompiledModeStyles = {
-    styleOrder: styleOrder
+    styleOrder: styleOrder,
+    writeFile: false
   };
 
   if (ctx.isChangeBuild && !ctx.changeHasSass) {
@@ -152,10 +159,10 @@ function compileSassFile(config: BuildConfig, ctx: BuildContext, moduleFile: Mod
       return (changedFileName === distFileName + '.ts' || changedFileName === distFileName + '.tsx');
     });
 
-    if (!hasChangedFileName && ctx.styleSassOutputs[absStylePath]) {
+    if (!hasChangedFileName && ctx.styleSassUnscopedOutputs[absStylePath]) {
       // don't bother running sass on this, none of the changed files have the same filename
       // use the cached version
-      compileSassDetails.unscopedStyles = ctx.styleSassOutputs[absStylePath];
+      compileSassDetails.unscopedStyles = ctx.styleSassUnscopedOutputs[absStylePath];
       compileSassDetails.scopedStyles = ctx.styleSassScopedOutputs[absStylePath];
       return Promise.resolve(compileSassDetails);
     }
@@ -174,12 +181,13 @@ function compileSassFile(config: BuildConfig, ctx: BuildContext, moduleFile: Mod
         d.messageText = err;
 
       } else {
-        fillStyleText(config, ctx, moduleFile.cmpMeta, compileSassDetails, result.css.toString(), absStylePath);
+        fillStyleText(config, ctx, moduleFile.cmpMeta, compileSassDetails, result.css, absStylePath);
 
+        compileSassDetails.writeFile = true;
         ctx.sassBuildCount++;
 
         // cache for later
-        ctx.styleSassOutputs[absStylePath] = compileSassDetails.unscopedStyles;
+        ctx.styleSassUnscopedOutputs[absStylePath] = compileSassDetails.unscopedStyles;
         ctx.styleSassScopedOutputs[absStylePath] = compileSassDetails.scopedStyles;
       }
       resolve(compileSassDetails);
@@ -190,12 +198,13 @@ function compileSassFile(config: BuildConfig, ctx: BuildContext, moduleFile: Mod
 
 function readCssFile(config: BuildConfig, ctx: BuildContext, cmpMeta: ComponentMeta, absStylePath: string, styleOrder: number) {
   const readCssDetails: CompiledModeStyles = {
-    styleOrder: styleOrder
+    styleOrder: styleOrder,
+    writeFile: false
   };
 
   if (ctx.isChangeBuild && !ctx.changeHasCss) {
     // if this is a change build, but there were no sass changes then don't bother
-    readCssDetails.unscopedStyles = ctx.styleCssOutputs[absStylePath];
+    readCssDetails.unscopedStyles = ctx.styleCssUnscopedOutputs[absStylePath];
     readCssDetails.scopedStyles = ctx.styleCssScopedOutputs[absStylePath];
     return Promise.resolve(readCssDetails);
   }
@@ -207,8 +216,10 @@ function readCssFile(config: BuildConfig, ctx: BuildContext, cmpMeta: ComponentM
   return readFile(sys, absStylePath).then(cssText => {
     fillStyleText(config, ctx, cmpMeta, readCssDetails, cssText.toString(), absStylePath);
 
+    readCssDetails.writeFile = true;
+
     // cache for later
-    ctx.styleCssOutputs[absStylePath] = readCssDetails.unscopedStyles;
+    ctx.styleCssUnscopedOutputs[absStylePath] = readCssDetails.unscopedStyles;
     ctx.styleCssScopedOutputs[absStylePath] = readCssDetails.scopedStyles;
 
   }).catch(err => {
