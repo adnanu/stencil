@@ -113,6 +113,13 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
       // let's pick out the inner content for slot projection
       assignHostContentSlots(domApi, elm, cmpMeta.slotMeta);
     }
+
+    if (!supportsNativeShadowDom && cmpMeta.encapsulation === ENCAPSULATION_TYPE.ShadowDom) {
+      // this component should use shadow dom
+      // but this browser doesn't support it
+      // so let's polyfill a few things for the user
+      (elm as any).shadowRoot = elm;
+    }
   }
 
 
