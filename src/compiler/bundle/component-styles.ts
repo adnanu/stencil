@@ -181,7 +181,7 @@ function compileSassFile(config: BuildConfig, ctx: BuildContext, moduleFile: Mod
         d.messageText = err;
 
       } else {
-        fillStyleText(config, ctx, moduleFile.cmpMeta, compileSassDetails, result.css, absStylePath);
+        fillStyleText(config, ctx, moduleFile.cmpMeta, compileSassDetails, result.css.toString(), absStylePath);
 
         compileSassDetails.writeFile = true;
         ctx.sassBuildCount++;

@@ -70,7 +70,7 @@ export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: 
     isClient: true
   };
 
-  const supportsNativeShadowDom = !!(domApi.$body.attachShadow && (domApi.$body as any).getRootNode);
+  const supportsNativeShadowDom = !!(Element.prototype.attachShadow);
 
   // create the renderer that will be used
   plt.render = createRendererPatch(plt, domApi, supportsNativeShadowDom);
