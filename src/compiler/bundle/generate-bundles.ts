@@ -1,13 +1,16 @@
-import { BuildConfig, BuildContext, CompiledModeStyles, ModuleFile, ManifestBundle } from '../../util/interfaces';
+import { BuildConfig, BuildContext, ComponentMeta, ComponentRegistry, CompiledModeStyles, ModuleFile, ManifestBundle } from '../../util/interfaces';
 import { componentRequiresScopedStyles, generatePreamble, normalizePath } from '../util';
 import { DEFAULT_STYLE_MODE } from '../../util/constants';
 import { formatLoadComponents, formatLoadStyles } from '../../util/data-serialize';
+import { getAppFileName } from '../app/generate-app-files';
 
 
 export function generateBundles(config: BuildConfig, ctx: BuildContext, manifestBundles: ManifestBundle[]) {
   manifestBundles.forEach(manifestBundle => {
     generateBundleFiles(config, ctx, manifestBundle);
   });
+
+  ctx.registry = generateComponentRegistry(manifestBundles);
 }
 
 
@@ -82,11 +85,9 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
     }
   });
 
-  const buildNamespace = config.namespace.toLowerCase();
-
   const unscopedWwwBuildPath = normalizePath(config.sys.path.join(
     config.buildDir,
-    buildNamespace,
+    getAppFileName(config),
     unscopedFileName
   ));
 
@@ -106,7 +107,7 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
   if (config.generateDistribution) {
     const unscopedDistPath = normalizePath(config.sys.path.join(
       config.distDir,
-      buildNamespace,
+      getAppFileName(config),
       unscopedFileName
     ));
 
@@ -132,7 +133,7 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
     if (config.generateWWW) {
       const scopedWwwPath = normalizePath(config.sys.path.join(
         config.buildDir,
-        buildNamespace,
+        getAppFileName(config),
         scopedFileName
       ));
 
@@ -142,7 +143,7 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
     if (config.generateDistribution) {
       const scopedDistPath = normalizePath(config.sys.path.join(
         config.distDir,
-        buildNamespace,
+        getAppFileName(config),
         scopedFileName
       ));
 
@@ -151,6 +152,29 @@ export function writeBundleFile(config: BuildConfig, ctx: BuildContext, manifest
   }
 
   return true;
+}
+
+
+export function generateComponentRegistry(manifestBundles: ManifestBundle[]) {
+  const registryComponents: ComponentMeta[] = [];
+  const registry: ComponentRegistry = {};
+
+  manifestBundles.forEach(manifestBundle => {
+    manifestBundle.moduleFiles.filter(m => m.cmpMeta).forEach(moduleFile => {
+      registryComponents.push(moduleFile.cmpMeta);
+    });
+  });
+
+  registryComponents.sort((a, b) => {
+    if (a.tagNameMeta < b.tagNameMeta) return -1;
+    if (a.tagNameMeta > b.tagNameMeta) return 1;
+    return 0;
+
+  }).forEach(cmpMeta => {
+    registry[cmpMeta.tagNameMeta] = cmpMeta;
+  });
+
+  return registry;
 }
 
 

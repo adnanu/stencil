@@ -7,7 +7,7 @@ import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
 import { createRendererPatch } from '../core/renderer/patch';
 import { ENCAPSULATION_TYPE, DEFAULT_STYLE_MODE, MEMBER_TYPE, RUNTIME_ERROR } from '../util/constants';
-import { getAppFileName } from '../compiler/app/app-core';
+import { getAppFileName } from '../compiler/app/generate-app-files';
 import { getJsFile, normalizePath } from '../compiler/util';
 import { h, t } from '../core/renderer/h';
 import { noop } from '../util/helpers';
